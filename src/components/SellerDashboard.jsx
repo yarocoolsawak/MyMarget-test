@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function SellerDashboard({ sellers, orders, activeSellerId, stripeConnected, stripeAccountId, onOpenStripeConnect, onDisconnectStripe }) {
+export default function SellerDashboard({ sellers, orders, activeSellerId, stripeConnected, stripeAccountId, stripeMainAccountId, onOpenStripeConnect, onDisconnectStripe }) {
   const sellerObj = sellers.find(s => s.id === activeSellerId) || { name: "ตัวแทนจำหน่าย", tier: "Standard Seller", totalSales: 0 };
   
   // Calculations
@@ -35,7 +35,7 @@ export default function SellerDashboard({ sellers, orders, activeSellerId, strip
                 </button>
               </div>
               <a 
-                href={`https://dashboard.stripe.com/test/connect/accounts/${stripeAccountId}`}
+                href={stripeMainAccountId ? `https://dashboard.stripe.com/${stripeMainAccountId}/test/connect/accounts/${stripeAccountId}` : `https://dashboard.stripe.com/test/connect/accounts/${stripeAccountId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-3xl transition-all shadow-sm"

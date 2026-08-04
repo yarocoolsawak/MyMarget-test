@@ -33,7 +33,7 @@ export default function StripeConnectModal({ role, isOpen, onClose, onConnect })
         accountIdToUse = "acct_" + Math.random().toString(36).substr(2, 10).toUpperCase();
       }
 
-      onConnect(role, { email, phone, bankAccount, accountId: accountIdToUse });
+      onConnect(role, { email, phone, bankAccount, accountId: accountIdToUse, mainAccountId: data.mainAccountId || '' });
       setStep(1);
       setEmail('');
       setPhone('');

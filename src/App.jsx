@@ -38,8 +38,10 @@ export default function App() {
   
   const [brandStripeConnected, setBrandStripeConnected] = useState(false);
   const [brandStripeAccountId, setBrandStripeAccountId] = useState('');
+  const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('');
   const [sellerStripeConnected, setSellerStripeConnected] = useState(false);
   const [sellerStripeAccountId, setSellerStripeAccountId] = useState('');
+  const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('');
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [stripeModalRole, setStripeModalRole] = useState('brand');
   
@@ -57,8 +59,10 @@ export default function App() {
         setSellerCatalog(parsed.sellerCatalog || DEFAULT_SELLER_CATALOG);
         setBrandStripeConnected(parsed.brandStripeConnected || false);
         setBrandStripeAccountId(parsed.brandStripeAccountId || '');
+        setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || '');
         setSellerStripeConnected(parsed.sellerStripeConnected || false);
         setSellerStripeAccountId(parsed.sellerStripeAccountId || '');
+        setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId || '');
         return;
       } catch (e) {
         console.error("Failed to parse localStorage state", e);
@@ -113,8 +117,10 @@ export default function App() {
       sellerCatalog: updatedCatalog || sellerCatalog,
       brandStripeConnected: extraState.brandStripeConnected !== undefined ? extraState.brandStripeConnected : brandStripeConnected,
       brandStripeAccountId: extraState.brandStripeAccountId !== undefined ? extraState.brandStripeAccountId : brandStripeAccountId,
+      brandStripeMainAccountId: extraState.brandStripeMainAccountId !== undefined ? extraState.brandStripeMainAccountId : brandStripeMainAccountId,
       sellerStripeConnected: extraState.sellerStripeConnected !== undefined ? extraState.sellerStripeConnected : sellerStripeConnected,
-      sellerStripeAccountId: extraState.sellerStripeAccountId !== undefined ? extraState.sellerStripeAccountId : sellerStripeAccountId
+      sellerStripeAccountId: extraState.sellerStripeAccountId !== undefined ? extraState.sellerStripeAccountId : sellerStripeAccountId,
+      sellerStripeMainAccountId: extraState.sellerStripeMainAccountId !== undefined ? extraState.sellerStripeMainAccountId : sellerStripeMainAccountId
     }));
   };
 
@@ -144,8 +150,10 @@ export default function App() {
       setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
       setBrandStripeConnected(false);
       setBrandStripeAccountId('');
+      setBrandStripeMainAccountId('');
       setSellerStripeConnected(false);
       setSellerStripeAccountId('');
+      setSellerStripeMainAccountId('');
       localStorage.removeItem('mymarket_react_state');
       showToast("รีเซ็ตสำเร็จ", "ข้อมูลจำลองได้ถูกปรับกลับเป็นค่าเริ่มต้นแล้ว", "success");
     }
@@ -155,17 +163,21 @@ export default function App() {
     if (role === 'brand') {
       setBrandStripeConnected(true);
       setBrandStripeAccountId(details.accountId);
+      setBrandStripeMainAccountId(details.mainAccountId || '');
       saveState(null, null, null, null, {
         brandStripeConnected: true,
-        brandStripeAccountId: details.accountId
+        brandStripeAccountId: details.accountId,
+        brandStripeMainAccountId: details.mainAccountId || ''
       });
       showToast("เชื่อมต่อ Stripe สำเร็จ", `บัญชีรับเงินของแบรนด์ได้รับการเชื่อมต่อแล้ว (${details.accountId})`, "success");
     } else {
       setSellerStripeConnected(true);
       setSellerStripeAccountId(details.accountId);
+      setSellerStripeMainAccountId(details.mainAccountId || '');
       saveState(null, null, null, null, {
         sellerStripeConnected: true,
-        sellerStripeAccountId: details.accountId
+        sellerStripeAccountId: details.accountId,
+        sellerStripeMainAccountId: details.mainAccountId || ''
       });
       showToast("เชื่อมต่อ Stripe สำเร็จ", `บัญชีรับเงินของตัวแทนได้รับการเชื่อมต่อแล้ว (${details.accountId})`, "success");
     }
@@ -175,17 +187,21 @@ export default function App() {
     if (role === 'brand') {
       setBrandStripeConnected(false);
       setBrandStripeAccountId('');
+      setBrandStripeMainAccountId('');
       saveState(null, null, null, null, {
         brandStripeConnected: false,
-        brandStripeAccountId: ''
+        brandStripeAccountId: '',
+        brandStripeMainAccountId: ''
       });
       showToast("ยกเลิกการเชื่อมต่อ", "ยกเลิกการเชื่อมต่อบัญชีรับเงินของแบรนด์เรียบร้อยแล้ว", "warning");
     } else {
       setSellerStripeConnected(false);
       setSellerStripeAccountId('');
+      setSellerStripeMainAccountId('');
       saveState(null, null, null, null, {
         sellerStripeConnected: false,
-        sellerStripeAccountId: ''
+        sellerStripeAccountId: '',
+        sellerStripeMainAccountId: ''
       });
       showToast("ยกเลิกการเชื่อมต่อ", "ยกเลิกการเชื่อมต่อบัญชีรับเงินของตัวแทนจำหน่ายเรียบร้อยแล้ว", "warning");
     }
@@ -700,6 +716,7 @@ export default function App() {
                   orders={orders} 
                   stripeConnected={brandStripeConnected}
                   stripeAccountId={brandStripeAccountId}
+                  stripeMainAccountId={brandStripeMainAccountId}
                   onOpenStripeConnect={() => handleOpenStripeConnect('brand')}
                   onDisconnectStripe={() => handleDisconnectStripe('brand')}
                 />
@@ -741,6 +758,7 @@ export default function App() {
                   activeSellerId={activeSellerId} 
                   stripeConnected={sellerStripeConnected}
                   stripeAccountId={sellerStripeAccountId}
+                  stripeMainAccountId={sellerStripeMainAccountId}
                   onOpenStripeConnect={() => handleOpenStripeConnect('seller')}
                   onDisconnectStripe={() => handleDisconnectStripe('seller')}
                 />

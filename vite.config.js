@@ -191,8 +191,17 @@ export default defineConfig({
                 });
               }
 
+              // Get main platform account ID dynamically
+              let mainAccountId = "";
+              try {
+                const platformAccount = await stripe.accounts.retrieve();
+                mainAccountId = platformAccount.id;
+              } catch (e) {
+                console.warn("Could not retrieve platform account ID:", e.message);
+              }
+
               res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ accountId: account.id }));
+              res.end(JSON.stringify({ accountId: account.id, mainAccountId: mainAccountId }));
             } catch (err) {
               console.error("Stripe Connect silent error:", err);
               res.writeHead(500, { 'Content-Type': 'application/json' });
