@@ -19,10 +19,28 @@ export default function StripeConnectModal({ role, isOpen, onClose, onConnect })
     }, 1500);
   };
 
-  const handleCompleteOnboarding = () => {
+  const handleCompleteOnboarding = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const response = await fetch('/api/create-connect-account-silent');
+      const data = await response.json();
+      
+      let accountIdToUse;
+      if (data.accountId) {
+        accountIdToUse = data.accountId;
+      } else {
+        console.warn("Silent Stripe Connect returned error, falling back to mock ID:", data.error);
+        accountIdToUse = "acct_" + Math.random().toString(36).substr(2, 10).toUpperCase();
+      }
+
+      onConnect(role, { email, phone, bankAccount, accountId: accountIdToUse });
+      setStep(1);
+      setEmail('');
+      setPhone('');
+      setBankAccount('');
+      onClose();
+    } catch (err) {
+      console.warn("Silent Stripe Connect request failed, falling back to mock ID:", err);
       const mockAccountId = "acct_" + Math.random().toString(36).substr(2, 10).toUpperCase();
       onConnect(role, { email, phone, bankAccount, accountId: mockAccountId });
       setStep(1);
@@ -30,7 +48,9 @@ export default function StripeConnectModal({ role, isOpen, onClose, onConnect })
       setPhone('');
       setBankAccount('');
       onClose();
-    }, 1800);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

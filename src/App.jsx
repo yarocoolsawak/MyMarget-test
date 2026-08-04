@@ -191,24 +191,9 @@ export default function App() {
     }
   };
 
-  const handleOpenStripeConnect = async (role) => {
-    try {
-      showToast("กำลังเริ่มระบบ Stripe Connect", "กำลังสร้างบัญชีรับเงิน Express จากเซิร์ฟเวอร์ Stripe...", "warning");
-      const response = await fetch(`/api/create-connect-account?role=${role}`);
-      const data = await response.json();
-      if (data.url) {
-        // Redirect to real Stripe Express onboarding
-        window.location.href = data.url;
-      } else {
-        throw new Error(data.error || "เกิดข้อผิดพลาดในการรับลิงก์ลงทะเบียน");
-      }
-    } catch (err) {
-      console.warn("Stripe Connect API failed, falling back to simulator:", err);
-      // Fallback: open local simulator modal
-      setStripeModalRole(role);
-      setStripeModalOpen(true);
-      showToast("เข้าสู่โหมดจำลอง", `ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ Stripe ได้จริง (${err.message}) สลับเข้าสู่โหมดหน้าต่างจำลองเพื่อความลื่นไหล`, "warning");
-    }
+  const handleOpenStripeConnect = (role) => {
+    setStripeModalRole(role);
+    setStripeModalOpen(true);
   };
 
   // --- STATE ACTIONS ---
