@@ -109,6 +109,48 @@ export default defineConfig({
             return;
           }
 
+          // Endpoint 3: Create Stripe Connect Express Account and Link
+          if (req.url.startsWith('/api/create-connect-account') && req.method === 'GET') {
+            try {
+              const url = new URL(req.url, 'http://localhost:5173');
+              const role = url.searchParams.get('role') || 'brand';
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable in .env.local' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+              // Create custom Express account
+              const account = await stripe.accounts.create({
+                type: 'express',
+                country: 'TH',
+                capabilities: {
+                  card_payments: { requested: true },
+                  transfers: { requested: true },
+                },
+              });
+
+              // Create Account Link for Express Onboarding
+              const accountLink = await stripe.accountLinks.create({
+                account: account.id,
+                refresh_url: `http://localhost:5173/?stripe_connect_status=refresh&role=${role}`,
+                return_url: `http://localhost:5173/?stripe_connect_status=success&role=${role}&account_id=${account.id}`,
+                type: 'account_onboarding',
+              });
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ url: accountLink.url, accountId: account.id }));
+            } catch (err) {
+              console.error("Stripe Connect link error:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
           // Otherwise, fall through to other middleware
           next();
         });

@@ -71,21 +71,36 @@ export default function App() {
     setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
   }, []);
 
-  // Handle Stripe Redirect verification
+  // Handle Stripe Redirect verification (Payments & Connect Onboarding)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. Payment Success Redirect
     const success = urlParams.get('payment_success');
     const orderId = urlParams.get('order_id');
     const sessionId = urlParams.get('session_id');
 
     if (success === 'true' && orderId && sessionId) {
-      // Clear URL params from window location
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      // Delay slightly for initial state load
       setTimeout(() => {
         handleCheckPaymentStatusAfterRedirect(orderId, sessionId);
       }, 800);
+      return;
+    }
+
+    // 2. Stripe Connect Onboarding Success Redirect
+    const connectStatus = urlParams.get('stripe_connect_status');
+    const connectRole = urlParams.get('role');
+    const connectAccountId = urlParams.get('account_id');
+
+    if (connectStatus === 'success' && connectRole && connectAccountId) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setTimeout(() => {
+        handleConnectStripe(connectRole, { accountId: connectAccountId });
+      }, 800);
+    } else if (connectStatus === 'refresh' && connectRole) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      showToast("เชื่อมต่อไม่สำเร็จ", "คุณยกเลิกการลงทะเบียน หรือเซสชันหมดอายุก่อนจะเสร็จสิ้นบนหน้าเว็บ Stripe", "error");
     }
   }, []);
 
@@ -172,6 +187,26 @@ export default function App() {
         sellerStripeAccountId: ''
       });
       showToast("ยกเลิกการเชื่อมต่อ", "ยกเลิกการเชื่อมต่อบัญชีรับเงินของตัวแทนจำหน่ายเรียบร้อยแล้ว", "warning");
+    }
+  };
+
+  const handleOpenStripeConnect = async (role) => {
+    try {
+      showToast("กำลังเริ่มระบบ Stripe Connect", "กำลังสร้างบัญชีรับเงิน Express จากเซิร์ฟเวอร์ Stripe...", "warning");
+      const response = await fetch(`/api/create-connect-account?role=${role}`);
+      const data = await response.json();
+      if (data.url) {
+        // Redirect to real Stripe Express onboarding
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "เกิดข้อผิดพลาดในการรับลิงก์ลงทะเบียน");
+      }
+    } catch (err) {
+      console.warn("Stripe Connect API failed, falling back to simulator:", err);
+      // Fallback: open local simulator modal
+      setStripeModalRole(role);
+      setStripeModalOpen(true);
+      showToast("เข้าสู่โหมดจำลอง", `ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ Stripe ได้จริง (${err.message}) สลับเข้าสู่โหมดหน้าต่างจำลองเพื่อความลื่นไหล`, "warning");
     }
   };
 
@@ -675,10 +710,7 @@ export default function App() {
                   orders={orders} 
                   stripeConnected={brandStripeConnected}
                   stripeAccountId={brandStripeAccountId}
-                  onOpenStripeConnect={() => {
-                    setStripeModalRole('brand');
-                    setStripeModalOpen(true);
-                  }}
+                  onOpenStripeConnect={() => handleOpenStripeConnect('brand')}
                   onDisconnectStripe={() => handleDisconnectStripe('brand')}
                 />
               )}
@@ -719,10 +751,7 @@ export default function App() {
                   activeSellerId={activeSellerId} 
                   stripeConnected={sellerStripeConnected}
                   stripeAccountId={sellerStripeAccountId}
-                  onOpenStripeConnect={() => {
-                    setStripeModalRole('seller');
-                    setStripeModalOpen(true);
-                  }}
+                  onOpenStripeConnect={() => handleOpenStripeConnect('seller')}
                   onDisconnectStripe={() => handleDisconnectStripe('seller')}
                 />
               )}
