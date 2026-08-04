@@ -51,19 +51,29 @@ export default function BrandDashboard({ products, sellers, orders, stripeConnec
           <h2 className="text-2xl font-semibold text-text-title">แดชบอร์ดภาพรวม (Brand Owner Dashboard)</h2>
           <p className="text-text-caption text-sm">วิเคราะห์ผลการขายและยอดรวมจากเครือข่ายตัวแทนของคุณแบบเรียลไทม์</p>
         </div>
-        <div>
+        <div className="flex items-center gap-3">
           {stripeConnected ? (
-            <div className="flex items-center gap-2 bg-status-success-bg border border-green-200 px-4 py-2 rounded-3xl text-xs font-semibold text-status-success-text">
-              <i className="fa-brands fa-stripe text-lg"></i>
-              <span>เชื่อมบัญชีรับเงินแล้ว ({stripeAccountId})</span>
-              <button 
-                onClick={onDisconnectStripe}
-                className="ml-2 text-slate-400 hover:text-status-error-text transition-colors"
-                title="ยกเลิกการเชื่อมต่อ"
+            <>
+              <div className="flex items-center gap-2 bg-status-success-bg border border-green-200 px-4 py-2 rounded-3xl text-xs font-semibold text-status-success-text">
+                <i className="fa-brands fa-stripe text-lg"></i>
+                <span>เชื่อมบัญชีรับเงินแล้ว ({stripeAccountId})</span>
+                <button 
+                  onClick={onDisconnectStripe}
+                  className="ml-2 text-slate-400 hover:text-status-error-text transition-colors"
+                  title="ยกเลิกการเชื่อมต่อ"
+                >
+                  <i className="fa-solid fa-circle-xmark"></i>
+                </button>
+              </div>
+              <a 
+                href={`https://dashboard.stripe.com/${stripeAccountId}/test/dashboard`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-3xl transition-all shadow-sm"
               >
-                <i className="fa-solid fa-circle-xmark"></i>
-              </button>
-            </div>
+                <i className="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> ดูแดชบอร์ด Stripe
+              </a>
+            </>
           ) : (
             <button 
               onClick={onOpenStripeConnect}
