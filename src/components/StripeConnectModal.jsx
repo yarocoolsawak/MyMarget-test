@@ -22,7 +22,7 @@ export default function StripeConnectModal({ role, isOpen, onClose, onConnect })
   const handleCompleteOnboarding = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/create-connect-account-silent');
+      const response = await fetch(`/api/create-connect-account-silent?role=${role}`);
       const data = await response.json();
       
       let accountIdToUse;

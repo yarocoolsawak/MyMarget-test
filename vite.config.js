@@ -165,6 +165,10 @@ export default defineConfig({
           // Endpoint 4: Create Stripe Connect Account Silently (without redirect)
           if (req.url.startsWith('/api/create-connect-account-silent') && req.method === 'GET') {
             try {
+              const url = new URL(req.url, 'http://localhost:5173');
+              const role = url.searchParams.get('role') || 'brand';
+              const displayName = role === 'brand' ? 'MyMarket Brand Owner' : 'MyMarket Seller';
+
               if (!process.env.STRIPE_SECRET_KEY) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable in .env.local' }));
@@ -178,6 +182,9 @@ export default defineConfig({
                 // Try creating Express account (best UX for platforms)
                 account = await stripe.accounts.create({
                   type: 'express',
+                  business_profile: {
+                    name: displayName,
+                  },
                   capabilities: {
                     card_payments: { requested: true },
                     transfers: { requested: true },
@@ -188,6 +195,9 @@ export default defineConfig({
                 // Fallback to Standard account type
                 account = await stripe.accounts.create({
                   type: 'standard',
+                  business_profile: {
+                    name: displayName,
+                  },
                 });
               }
 
