@@ -1,0 +1,410 @@
+import React, { useState, useEffect } from 'react';
+
+export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Form states
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [qty, setQty] = useState(1);
+  const [sellingPrice, setSellingPrice] = useState('');
+  
+  // Validation states
+  const [stockCount, setStockCount] = useState(0);
+  const [minPriceAllowed, setMinPriceAllowed] = useState(0);
+  const [priceError, setPriceError] = useState(false);
+  const [stockError, setStockError] = useState(false);
+
+  const myOrders = orders.filter(o => o.sellerId === activeSellerId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  // Sync selected product details
+  useEffect(() => {
+    if (selectedProductId) {
+      const product = products.find(p => p.id === selectedProductId);
+      const catalogItem = sellerCatalog.find(c => c.productId === selectedProductId);
+      if (product && catalogItem) {
+        setStockCount(product.stock);
+        setMinPriceAllowed(product.dealerPrice);
+        setSellingPrice(catalogItem.sellingPrice);
+        setStockError(qty > product.stock);
+        setPriceError(catalogItem.sellingPrice < product.dealerPrice);
+      }
+    } else {
+      setStockCount(0);
+      setMinPriceAllowed(0);
+      setSellingPrice('');
+      setStockError(false);
+      setPriceError(false);
+    }
+  }, [selectedProductId, products, sellerCatalog]);
+
+  // Handle inputs changing
+  const handleQtyChange = (val) => {
+    const numeric = parseInt(val) || 0;
+    setQty(numeric);
+    setStockError(numeric > stockCount);
+  };
+
+  const handlePriceChange = (val) => {
+    const numeric = parseFloat(val) || 0;
+    setSellingPrice(numeric);
+    setPriceError(numeric < minPriceAllowed);
+  };
+
+  const openOrderModal = () => {
+    if (sellerCatalog.length === 0) {
+      alert("กรุณาเพิ่มสินค้าเข้าร้านค้าของคุณก่อนที่จะดำเนินรายการสั่งซื้อ");
+      return;
+    }
+    setCustomerName('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setSelectedProductId('');
+    setQty(1);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedProductId || priceError || stockError || !customerName || !customerPhone || !customerAddress) return;
+
+    onCreateOrder({
+      productId: selectedProductId,
+      qty,
+      sellingPrice: parseFloat(sellingPrice),
+      customerName,
+      customerPhone,
+      customerAddress
+    });
+
+    setIsModalOpen(false);
+  };
+
+  // Calculations for Order Summary Box
+  const totalAmount = (parseFloat(sellingPrice) || 0) * qty;
+  const totalCost = minPriceAllowed * qty;
+  const netProfit = totalAmount - totalCost;
+
+  const getFriendlyRejectReason = (reason) => {
+    if (!reason) return '';
+    const reasons = {
+      "STOCK_MISMATCH": "สต็อกคลาดเคลื่อน / สินค้าหมด",
+      "PRICE_VIOLATION": "ราคาขายปลีกต่ำกว่าราคากลาง",
+      "INVALID_ADDRESS": "ที่อยู่ไม่ถูกต้อง",
+      "OTHER": "อื่นๆ"
+    };
+    for (const key in reasons) {
+      if (reason.startsWith(key)) {
+        return reason.replace(key, reasons[key]);
+      }
+    }
+    return reason;
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-text-title">รายการสั่งซื้อและติดตามพัสดุ (Orders & Tracking)</h2>
+          <p className="text-text-caption text-sm">สร้างออเดอร์ปลายทาง (COD) ให้ลูกค้า ติดตามสถานะจัดส่งจากคลังสินค้าหลักของแบรนด์</p>
+        </div>
+        <button 
+          onClick={openOrderModal}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-brand-secondary hover:bg-brand-secondary-hover text-white text-sm font-semibold rounded-3xl shadow-button hover:shadow-button-hover active:translate-y-[1px] transition-all duration-200"
+        >
+          <i className="fa-solid fa-file-invoice-dollar"></i> สร้างออเดอร์ใหม่ (COD)
+        </button>
+      </div>
+
+      {/* Orders Table Card */}
+      <div className="bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-text-title font-semibold">
+                <th className="p-4 border-b border-slate-100">เลขที่ใบสั่งซื้อ</th>
+                <th className="p-4 border-b border-slate-100">ชื่อลูกค้า / โทรศัพท์</th>
+                <th className="p-4 border-b border-slate-100">รายการสินค้า</th>
+                <th className="p-4 border-b border-slate-100">ราคาขายปลีก</th>
+                <th className="p-4 border-b border-slate-100">กำไรที่คุณได้รับ</th>
+                <th className="p-4 border-b border-slate-100">สถานะ (MyOrder)</th>
+                <th className="p-4 border-b border-slate-100">เลขพัสดุ / ขนส่ง</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {myOrders.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center p-10 text-text-caption font-medium">
+                    ไม่มีรายการออเดอร์ของร้านค้าคุณ
+                  </td>
+                </tr>
+              ) : (
+                myOrders.map(o => {
+                  const product = products.find(p => p.id === o.productId) || { name: 'สินค้าที่ไม่มีในคลัง', image: '' };
+
+                  return (
+                    <tr key={o.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4 font-semibold text-text-title">
+                        #{o.id}
+                        <span className="block text-[11px] text-text-caption font-normal mt-0.5">
+                          {new Date(o.createdAt).toLocaleDateString("th-TH")}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-semibold">{o.customerName}</div>
+                        <span className="text-xs text-text-caption block mt-0.5">
+                          <i className="fa-solid fa-phone text-[10px]"></i> {o.customerPhone}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          <img src={product.image} className="w-10 h-10 rounded-lg object-cover bg-slate-100" alt="" />
+                          <div>
+                            <div className="font-semibold text-text-title">{product.name}</div>
+                            <span className="text-xs text-text-caption block mt-0.5">
+                              {o.qty} ชิ้น x {o.sellingPrice.toLocaleString()} THB
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 font-bold text-slate-800">
+                        {o.totalAmount.toLocaleString()} THB
+                      </td>
+                      <td className="p-4">
+                        <span className="font-bold text-status-success-text">+{o.profit.toLocaleString()} THB</span>
+                      </td>
+                      <td className="p-4">
+                        {o.status === "PENDING" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-status-warning-bg text-status-warning-text">
+                            <i className="fa-solid fa-hourglass-start text-[10px]"></i> รอตรวจสอบ
+                          </span>
+                        )}
+                        {o.status === "CONFIRMED" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-brand-secondary">
+                            <i className="fa-solid fa-circle-check text-[10px]"></i> รับออเดอร์แล้ว
+                          </span>
+                        )}
+                        {o.status === "SHIPPING" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-brand-ai">
+                            <i className="fa-solid fa-truck-fast text-[10px]"></i> ระหว่างขนส่ง
+                          </span>
+                        )}
+                        {o.status === "DELIVERED" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-status-success-bg text-status-success-text">
+                            <i className="fa-solid fa-check-double text-[10px]"></i> สำเร็จ (โอนกำไร)
+                          </span>
+                        )}
+                        {o.status === "REJECTED" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-status-error-bg text-status-error-text" title={o.rejectReason}>
+                            <i className="fa-solid fa-triangle-exclamation text-[10px]"></i> ถูกยกเลิก
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-xs">
+                        {o.status === "PENDING" && (
+                          <span className="text-text-caption">แบรนด์กำลังตรวจสอบสต็อก</span>
+                        )}
+                        {o.status === "CONFIRMED" && (
+                          <span className="text-text-caption">กำลังเตรียมแพ็คสินค้า</span>
+                        )}
+                        {o.status === "SHIPPING" && (
+                          <div>
+                            <div className="font-semibold text-brand-ai">{o.trackingNumber}</div>
+                            <span className="text-text-caption block mt-0.5">{o.carrier}</span>
+                          </div>
+                        )}
+                        {o.status === "DELIVERED" && (
+                          <div>
+                            <div className="font-semibold text-status-success-text">{o.trackingNumber}</div>
+                            <span className="text-[10px] text-text-caption block mt-0.5 font-medium">กำไรโอนเข้ากระเป๋าแล้ว</span>
+                          </div>
+                        )}
+                        {o.status === "REJECTED" && (
+                          <span className="text-status-error-text font-medium" title={o.rejectReason}>
+                            ปฏิเสธ: {getFriendlyRejectReason(o.rejectReason)}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal: Create Order */}
+      {isModalOpen && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/40 backdrop-blur-[4px] flex items-center justify-center z-[1000] animate-fade-in">
+          <div className="bg-white rounded-2xl w-11/12 max-w-[720px] shadow-modal overflow-hidden animate-fade-in">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-semibold text-text-title text-base flex items-center gap-2">
+                <i className="fa-solid fa-file-circle-plus text-brand-secondary"></i> สร้างคำสั่งซื้อใหม่ (เก็บเงินปลายทาง COD)
+              </h3>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                className="text-text-caption hover:bg-slate-100 hover:text-text-title w-8 h-8 rounded-full flex items-center justify-center text-lg"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 max-h-[70vh] overflow-y-auto">
+                {/* Left Section: Customer Info */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-text-title text-sm border-b border-slate-100 pb-2 flex items-center gap-2">
+                    <i className="fa-solid fa-user-tag text-slate-500"></i> ข้อมูลผู้รับปลายทาง (ลูกค้า)
+                  </h4>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-text-title text-xs">ชื่อ-นามสกุล ผู้รับพัสดุ <span className="text-status-error-text">*</span></label>
+                    <input 
+                      type="text" 
+                      value={customerName}
+                      onChange={e => setCustomerName(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                      required
+                      placeholder="เช่น นายสมชาย ใจดี"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-text-title text-xs">เบอร์โทรศัพท์ผู้รับ <span className="text-status-error-text">*</span></label>
+                    <input 
+                      type="tel" 
+                      value={customerPhone}
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                      required
+                      placeholder="เช่น 0891234567"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-text-title text-xs">ที่อยู่สำหรับจัดส่งอย่างละเอียด <span className="text-status-error-text">*</span></label>
+                    <textarea 
+                      value={customerAddress}
+                      onChange={e => setCustomerAddress(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                      rows="3"
+                      required
+                      placeholder="เลขที่ ซอย ถนน แขวง เขต จังหวัด รหัสไปรษณีย์"
+                    />
+                  </div>
+                </div>
+
+                {/* Right Section: Product selection and total */}
+                <div className="space-y-4 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-8">
+                  <h4 className="font-bold text-text-title text-sm border-b border-slate-100 pb-2 flex items-center gap-2">
+                    <i className="fa-solid fa-cart-shopping text-slate-500"></i> ข้อมูลรายการขายและราคา
+                  </h4>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-text-title text-xs">เลือกสินค้าจากหน้าร้านของคุณ <span className="text-status-error-text">*</span></label>
+                    <select
+                      value={selectedProductId}
+                      onChange={e => setSelectedProductId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                      required
+                    >
+                      <option value="">-- โปรดเลือกสินค้าของคุณ --</option>
+                      {sellerCatalog.map(item => {
+                        const product = products.find(p => p.id === item.productId);
+                        return product ? (
+                          <option key={item.productId} value={product.id}>
+                            {product.name} (ราคาคุณ: {item.sellingPrice} THB)
+                          </option>
+                        ) : null;
+                      })}
+                    </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-semibold text-text-title text-xs">จำนวนชิ้น <span className="text-status-error-text">*</span></label>
+                      <input 
+                        type="number" 
+                        value={qty}
+                        onChange={e => handleQtyChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                        required 
+                        min="1"
+                        disabled={!selectedProductId}
+                      />
+                      {selectedProductId && (
+                        <span className={`text-[10px] ${stockError ? 'text-status-error-text font-semibold' : 'text-text-caption'}`}>
+                          สต็อกคงคลัง: {stockCount} ชิ้น
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="font-semibold text-text-title text-xs">ราคาขายต่อชิ้น (THB) <span className="text-status-error-text">*</span></label>
+                      <input 
+                        type="number" 
+                        value={sellingPrice}
+                        onChange={e => handlePriceChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                        required 
+                        min="1"
+                        disabled={!selectedProductId}
+                      />
+                      {selectedProductId && priceError && (
+                        <span className="text-[10px] text-status-error-text font-semibold">
+                          ห้ามต่ำกว่าราคากลาง ({minPriceAllowed} THB)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Summary Box */}
+                  <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col gap-2 mt-4 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-text-body font-medium">ยอดเก็บเงินปลายทางรวม (COD):</span>
+                      <span className="text-base font-bold text-brand-secondary">
+                        {priceError ? "ผิดกฎราคากลาง" : `${totalAmount.toLocaleString()} THB`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-text-caption">
+                      <span>ราคาทุนแบรนด์ (Dealer Cost):</span>
+                      <span>{priceError ? "---" : `${totalCost.toLocaleString()} THB`}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-200 font-bold text-sm">
+                      <span>ส่วนต่างกำไรสุทธิของคุณ:</span>
+                      {priceError ? (
+                        <span className="text-status-error-text">---</span>
+                      ) : (
+                        <span className="text-status-success-text">+{netProfit.toLocaleString()} THB</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 border border-slate-200 text-text-body font-semibold rounded-3xl hover:bg-slate-100 text-sm"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={priceError || stockError || !selectedProductId}
+                  className={`px-5 py-2 text-white font-semibold rounded-3xl shadow-button text-sm transition-all ${
+                    (priceError || stockError || !selectedProductId)
+                      ? 'bg-slate-300 cursor-not-allowed opacity-50' 
+                      : 'bg-brand-secondary hover:bg-brand-secondary-hover'
+                  }`}
+                >
+                  ส่งคำสั่งซื้อเข้าระบบ MyOrder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

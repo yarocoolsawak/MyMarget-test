@@ -1,0 +1,622 @@
+import React, { useState, useEffect } from 'react';
+import {
+  DEFAULT_PRODUCTS,
+  DEFAULT_SELLERS,
+  DEFAULT_ORDERS,
+  DEFAULT_SELLER_CATALOG
+} from './mockData';
+
+// Brand Components
+import BrandDashboard from './components/BrandDashboard';
+import ProductManagement from './components/ProductManagement';
+import BrandOrders from './components/BrandOrders';
+import BrandSellers from './components/BrandSellers';
+
+// Seller Components
+import SellerDashboard from './components/SellerDashboard';
+import BrowseCatalog from './components/BrowseCatalog';
+import MyStoreCatalog from './components/MyStoreCatalog';
+import SellerOrders from './components/SellerOrders';
+
+export default function App() {
+  // --- STATE SECTIONS ---
+  const [currentRole, setCurrentRole] = useState('brand');
+  const [activeBrandTab, setActiveBrandTab] = useState('dashboard');
+  const [activeSellerTab, setActiveSellerTab] = useState('dashboard');
+  
+  const [products, setProducts] = useState([]);
+  const [sellers, setSellers] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [sellerCatalog, setSellerCatalog] = useState([]);
+  
+  const [toasts, setToasts] = useState([]);
+  
+  const activeSellerId = 's2'; // fixed active seller for prototype testing
+
+  // --- INITIALIZE & SAVE ---
+  useEffect(() => {
+    const raw = localStorage.getItem('mymarket_react_state');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        setProducts(parsed.products || DEFAULT_PRODUCTS);
+        setSellers(parsed.sellers || DEFAULT_SELLERS);
+        setOrders(parsed.orders || DEFAULT_ORDERS);
+        setSellerCatalog(parsed.sellerCatalog || DEFAULT_SELLER_CATALOG);
+        return;
+      } catch (e) {
+        console.error("Failed to parse localStorage state", e);
+      }
+    }
+    // Load Defaults
+    setProducts([...DEFAULT_PRODUCTS]);
+    setSellers([...DEFAULT_SELLERS]);
+    setOrders([...DEFAULT_ORDERS]);
+    setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
+  }, []);
+
+  const saveState = (updatedProducts, updatedSellers, updatedOrders, updatedCatalog) => {
+    localStorage.setItem('mymarket_react_state', JSON.stringify({
+      products: updatedProducts || products,
+      sellers: updatedSellers || sellers,
+      orders: updatedOrders || orders,
+      sellerCatalog: updatedCatalog || sellerCatalog
+    }));
+  };
+
+  // --- GLOBAL TOAST SYSTEM ---
+  const showToast = (title, message, type = 'success', undoCallback = null) => {
+    const id = Date.now();
+    const newToast = { id, title, message, type, undoCallback };
+    
+    setToasts(prev => [newToast, ...prev]);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      removeToast(id);
+    }, 5000);
+  };
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // --- RESET SIMULATOR ---
+  const handleResetSimulator = () => {
+    if (confirm("คุณต้องการรีเซ็ตข้อมูลตัวจำลองทั้งหมดกลับเป็นค่าเริ่มต้นใช่หรือไม่?")) {
+      setProducts([...DEFAULT_PRODUCTS]);
+      setSellers([...DEFAULT_SELLERS]);
+      setOrders([...DEFAULT_ORDERS]);
+      setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
+      localStorage.removeItem('mymarket_react_state');
+      showToast("รีเซ็ตสำเร็จ", "ข้อมูลจำลองได้ถูกปรับกลับเป็นค่าเริ่มต้นแล้ว", "success");
+    }
+  };
+
+  // --- STATE ACTIONS ---
+
+  // Brand Owner Actions
+  const handleAddProduct = (newProd) => {
+    const updatedProducts = [
+      ...products,
+      {
+        id: "p" + (products.length + 1),
+        description: "สินค้าเพิ่มใหม่โดยเจ้าของแบรนด์ มีการควบคุมราคากลางสำหรับการจำหน่าย",
+        status: newProd.shippingSetting ? "ACTIVE" : "INACTIVE",
+        image: newProd.image || `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(newProd.name)}`,
+        ...newProd
+      }
+    ];
+    setProducts(updatedProducts);
+    saveState(updatedProducts, null, null, null);
+    showToast("บันทึกสินค้าสำเร็จ", `สินค้า "${newProd.name}" ได้ถูกเพิ่มเข้าสู่ระบบ MyMarket แล้ว`, "success");
+  };
+
+  const handleUpdateStock = (productId, newStock) => {
+    const updatedProducts = products.map(p => p.id === productId ? { ...p, stock: newStock } : p);
+    setProducts(updatedProducts);
+    saveState(updatedProducts, null, null, null);
+    showToast("อัปเดตสต็อกแล้ว", `ปรับจำนวนสต็อกสินค้าสำเร็จ`, "success");
+  };
+
+  const handleEditProduct = (productId, newPrice) => {
+    const updatedProducts = products.map(p => p.id === productId ? { ...p, dealerPrice: newPrice } : p);
+    setProducts(updatedProducts);
+    saveState(updatedProducts, null, null, null);
+    showToast("แก้ไขสำเร็จ", `ปรับปรุงราคากลาง Dealer Price สำเร็จ`, "success");
+  };
+
+  const handleDeleteProduct = (productId) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const backupProducts = [...products];
+    const backupCatalog = [...sellerCatalog];
+
+    const updatedProducts = products.filter(p => p.id !== productId);
+    const updatedCatalog = sellerCatalog.filter(c => c.productId !== productId);
+
+    setProducts(updatedProducts);
+    setSellerCatalog(updatedCatalog);
+    saveState(updatedProducts, null, null, updatedCatalog);
+
+    showToast("ลบสินค้าสำเร็จ", `ลบ "${product.name}" ออกจากระบบแล้ว`, "warning", () => {
+      setProducts(backupProducts);
+      setSellerCatalog(backupCatalog);
+      saveState(backupProducts, null, null, backupCatalog);
+      showToast("กู้คืนสำเร็จ", "สินค้าได้รับการกู้คืนเรียบร้อยแล้ว", "success");
+    });
+  };
+
+  const handleConfirmOrder = (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const product = products.find(p => p.id === order.productId);
+    if (!product) {
+      showToast("ไม่พบสินค้า", "ไม่พบสินค้าในสต็อกหลัก", "error");
+      return;
+    }
+
+    if (product.stock < order.qty) {
+      showToast("สต็อกไม่พอ", `สินค้าในคลังมีจำนวนไม่พอสำหรับคำสั่งซื้อนี้`, "error");
+      return;
+    }
+
+    const updatedProducts = products.map(p => p.id === order.productId ? { ...p, stock: p.stock - order.qty } : p);
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'CONFIRMED' } : o);
+
+    setProducts(updatedProducts);
+    setOrders(updatedOrders);
+    saveState(updatedProducts, null, updatedOrders, null);
+    showToast("ยืนยันออเดอร์แล้ว", `ยืนยันสต็อกออเดอร์ #${orderId} สำเร็จ`, "success");
+  };
+
+  const handleRejectOrder = (orderId, rejectReason) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'REJECTED', rejectReason } : o);
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("ปฏิเสธคำสั่งซื้อแล้ว", `ยกเลิกการดำเนินรายการคำสั่งซื้อ #${orderId}`, "warning");
+  };
+
+  const handleShipOrder = (orderId) => {
+    const trackNum = "TH" + Math.floor(100000000 + Math.random() * 900000000) + "MY";
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'SHIPPING',
+      trackingNumber: trackNum,
+      carrier: "MyOrder Logistics (COD Service)"
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("จัดส่งพัสดุแล้ว", `สร้างเลขพัสดุ ${trackNum} สำเร็จ`, "success");
+  };
+
+  const handleDeliverOrder = (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o);
+    
+    // Upgrade active seller stats
+    const updatedSellers = sellers.map(s => {
+      if (s.id === order.sellerId) {
+        const newSales = s.totalSales + order.totalAmount;
+        return {
+          ...s,
+          totalSales: newSales,
+          ordersCount: s.ordersCount + 1,
+          tier: newSales >= 20000 ? "Pro Seller" : s.tier
+        };
+      }
+      return s;
+    });
+
+    setOrders(updatedOrders);
+    setSellers(updatedSellers);
+    saveState(null, updatedSellers, updatedOrders, null);
+    showToast("ส่งมอบพัสดุสำเร็จ", `ปิดงานจัดส่งออเดอร์ #${orderId} และโอนกำไรเข้าวอลเล็ตตัวแทนเรียบร้อย`, "success");
+  };
+
+  const handleOnboardSeller = (name) => {
+    const seed = encodeURIComponent(name);
+    const updatedSellers = [
+      ...sellers,
+      {
+        id: "s" + (sellers.length + 1),
+        name,
+        avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}`,
+        totalSales: 0,
+        ordersCount: 0,
+        tier: "Standard Seller",
+        status: "ACTIVE"
+      }
+    ];
+    setSellers(updatedSellers);
+    saveState(null, updatedSellers, null, null);
+    showToast("อนุมัติตัวแทนใหม่แล้ว", `ร้าน "${name}" เข้าร่วมเครือข่าย MyMarket แล้ว`, "success");
+  };
+
+  // Seller Actions
+  const handleConfigureCatalog = (productId, sellingPrice) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) return;
+
+    const existingIndex = sellerCatalog.findIndex(c => c.productId === productId);
+    let updatedCatalog = [];
+
+    if (existingIndex > -1) {
+      updatedCatalog = sellerCatalog.map((c, i) => i === existingIndex ? { ...c, sellingPrice } : c);
+    } else {
+      updatedCatalog = [...sellerCatalog, { productId, sellingPrice }];
+    }
+
+    setSellerCatalog(updatedCatalog);
+    saveState(null, null, null, updatedCatalog);
+    showToast("นำเข้าสินค้าแล้ว", `เพิ่ม "${product.name}" ในหน้าร้านปลีกของคุณสำเร็จ`, "success");
+  };
+
+  const handleRemoveFromCatalog = (productId, productName) => {
+    const catalogItem = sellerCatalog.find(c => c.productId === productId);
+    if (!catalogItem) return;
+
+    const backupCatalog = [...sellerCatalog];
+    const updatedCatalog = sellerCatalog.filter(c => c.productId !== productId);
+    
+    setSellerCatalog(updatedCatalog);
+    saveState(null, null, null, updatedCatalog);
+
+    showToast("นำสินค้าออกสำเร็จ", `ถอน "${productName}" ออกจากร้านค้าสำเร็จ`, "warning", () => {
+      setSellerCatalog(backupCatalog);
+      saveState(null, null, null, backupCatalog);
+      showToast("กู้คืนสำเร็จ", "นำสินค้าคืนสู่ร้านค้าแล้ว", "success");
+    });
+  };
+
+  const handleCreateOrder = (formValues) => {
+    const orderId = "MM-" + Math.floor(1004 + Math.random() * 8999);
+    const product = products.find(p => p.id === formValues.productId);
+    const profit = (formValues.sellingPrice - product.dealerPrice) * formValues.qty;
+
+    const newOrder = {
+      id: orderId,
+      sellerId: activeSellerId,
+      createdAt: new Date().toISOString(),
+      dealerPrice: product.dealerPrice,
+      totalAmount: formValues.sellingPrice * formValues.qty,
+      profit,
+      paymentMethod: "COD",
+      status: "PENDING",
+      trackingNumber: "",
+      carrier: "",
+      rejectReason: "",
+      ...formValues
+    };
+
+    const updatedOrders = [...orders, newOrder];
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+
+    showToast("ส่งคำสั่งซื้อสำเร็จ", `ออเดอร์ #${orderId} ถูกส่งไปยังระบบ MyOrder เรียบร้อย`, "success", () => {
+      // Undo order
+      const undoneOrders = orders.filter(o => o.id !== orderId);
+      setOrders(undoneOrders);
+      saveState(null, null, undoneOrders, null);
+      showToast("ยกเลิกออเดอร์สำเร็จ", `ยกเลิกรายการออเดอร์ #${orderId} เรียบร้อย`, "warning");
+    });
+  };
+
+  // --- STATS BADGES HELPER ---
+  const pendingOrdersCount = orders.filter(o => o.status === "PENDING").length;
+
+  return (
+    <div className="min-h-screen flex flex-col font-sans">
+      
+      {/* Top Global Bar */}
+      <header className="h-[70px] bg-white border-b border-slate-100 flex justify-between items-center px-6 sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center gap-3">
+          <i className="fa-solid fa-store text-[28px] bg-gradient-to-r from-brand-secondary to-brand-primary bg-clip-text text-transparent"></i>
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold text-text-title tracking-tight leading-none">MyMarket</h1>
+            <span className="text-[10px] text-text-caption mt-0.5">powered by MyOrder</span>
+          </div>
+        </div>
+
+        {/* Role Selector Toggle */}
+        <div className="flex bg-slate-100 p-1 rounded-3xl border border-slate-200">
+          <button 
+            onClick={() => switchRole('brand')}
+            className={`flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-3xl transition-all duration-300 ${
+              currentRole === 'brand' 
+                ? 'bg-brand-primary text-white shadow-button' 
+                : 'text-text-body hover:text-text-title'
+            }`}
+          >
+            <i className="fa-solid fa-user-tie text-xs"></i> เจ้าของแบรนด์ (Brand Owner)
+          </button>
+          <button 
+            onClick={() => switchRole('seller')}
+            className={`flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-3xl transition-all duration-300 ${
+              currentRole === 'seller' 
+                ? 'bg-brand-secondary text-white shadow-button' 
+                : 'text-text-body hover:text-text-title'
+            }`}
+          >
+            <i className="fa-solid fa-users text-xs"></i> ตัวแทนจำหน่าย (Seller)
+          </button>
+        </div>
+
+        {/* Profile Info */}
+        <div className="flex items-center gap-3">
+          <img 
+            src={currentRole === 'brand' ? "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix" : (sellers.find(s => s.id === activeSellerId)?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix")} 
+            alt="Avatar" 
+            className="w-10 h-10 rounded-full border border-slate-100 bg-brand-primary-subtle"
+          />
+          <div className="flex flex-col text-left">
+            <span className="font-semibold text-text-title text-sm">
+              {currentRole === 'brand' ? "Brand Admin (คุณกิตติ)" : (sellers.find(s => s.id === activeSellerId)?.name || "Seller")}
+            </span>
+            <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-md w-fit ${
+              currentRole === 'brand' ? 'bg-brand-primary' : 'bg-brand-secondary'
+            }`}>
+              {currentRole === 'brand' ? "Owner" : (sellers.find(s => s.id === activeSellerId)?.tier || "Standard")}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <div className="flex flex-grow min-h-[calc(100vh-70px)]">
+        
+        {/* Sidebar Nav */}
+        <aside className="w-[260px] bg-white border-r border-slate-100 py-6 px-4 flex-shrink-0">
+          <nav className="flex flex-col gap-2">
+            {currentRole === 'brand' ? (
+              <>
+                <button 
+                  onClick={() => setActiveBrandTab('dashboard')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeBrandTab === 'dashboard'
+                      ? 'bg-brand-primary-subtle text-brand-primary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-chart-pie text-base ${activeBrandTab === 'dashboard' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
+                  <span>แดชบอร์ดภาพรวม</span>
+                </button>
+                <button 
+                  onClick={() => setActiveBrandTab('products')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeBrandTab === 'products'
+                      ? 'bg-brand-primary-subtle text-brand-primary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-boxes-stacked text-base ${activeBrandTab === 'products' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
+                  <span>การจัดการสินค้า</span>
+                </button>
+                <button 
+                  onClick={() => setActiveBrandTab('orders')}
+                  className={`flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all relative ${
+                    activeBrandTab === 'orders'
+                      ? 'bg-brand-primary-subtle text-brand-primary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <i className={`fa-solid fa-receipt text-base ${activeBrandTab === 'orders' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
+                    <span>รายการสั่งซื้อ</span>
+                  </div>
+                  {pendingOrdersCount > 0 && (
+                    <span className="bg-status-error-bg text-status-error-text text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {pendingOrdersCount}
+                    </span>
+                  )}
+                </button>
+                <button 
+                  onClick={() => setActiveBrandTab('sellers')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeBrandTab === 'sellers'
+                      ? 'bg-brand-primary-subtle text-brand-primary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-network-wired text-base ${activeBrandTab === 'sellers' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
+                  <span>เครือข่ายตัวแทน</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setActiveSellerTab('dashboard')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeSellerTab === 'dashboard'
+                      ? 'bg-brand-secondary-subtle text-brand-secondary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-chart-line text-base ${activeSellerTab === 'dashboard' ? 'text-brand-secondary' : 'text-text-caption'}`}></i>
+                  <span>แผงควบคุมของฉัน</span>
+                </button>
+                <button 
+                  onClick={() => setActiveSellerTab('browse')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeSellerTab === 'browse'
+                      ? 'bg-brand-secondary-subtle text-brand-secondary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-magnifying-glass-plus text-base ${activeSellerTab === 'browse' ? 'text-brand-secondary' : 'text-text-caption'}`}></i>
+                  <span>หาสินค้าไปขาย</span>
+                </button>
+                <button 
+                  onClick={() => setActiveSellerTab('store')}
+                  className={`flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all relative ${
+                    activeSellerTab === 'store'
+                      ? 'bg-brand-secondary-subtle text-brand-secondary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <i className={`fa-solid fa-shop text-base ${activeSellerTab === 'store' ? 'text-brand-secondary' : 'text-text-caption'}`}></i>
+                    <span>ร้านค้าของฉัน</span>
+                  </div>
+                  {sellerCatalog.length > 0 && (
+                    <span className="bg-brand-secondary-subtle text-brand-secondary text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {sellerCatalog.length}
+                    </span>
+                  )}
+                </button>
+                <button 
+                  onClick={() => setActiveSellerTab('orders')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeSellerTab === 'orders'
+                      ? 'bg-brand-secondary-subtle text-brand-secondary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-dolly text-base ${activeSellerTab === 'orders' ? 'text-brand-secondary' : 'text-text-caption'}`}></i>
+                  <span>ออเดอร์และจัดส่ง</span>
+                </button>
+              </>
+            )}
+          </nav>
+        </aside>
+
+        {/* Viewport Content */}
+        <main className="flex-grow p-8 overflow-y-auto max-w-[1200px] mx-auto w-full">
+          {currentRole === 'brand' ? (
+            <>
+              {activeBrandTab === 'dashboard' && (
+                <BrandDashboard products={products} sellers={sellers} orders={orders} />
+              )}
+              {activeBrandTab === 'products' && (
+                <ProductManagement 
+                  products={products} 
+                  onAddProduct={handleAddProduct}
+                  onUpdateStock={handleUpdateStock}
+                  onDeleteProduct={handleDeleteProduct}
+                  onEditProduct={handleEditProduct}
+                />
+              )}
+              {activeBrandTab === 'orders' && (
+                <BrandOrders 
+                  orders={orders} 
+                  products={products}
+                  sellers={sellers}
+                  onConfirmOrder={handleConfirmOrder}
+                  onShipOrder={handleShipOrder}
+                  onDeliverOrder={handleDeliverOrder}
+                  onRejectOrder={handleRejectOrder}
+                />
+              )}
+              {activeBrandTab === 'sellers' && (
+                <BrandSellers 
+                  sellers={sellers} 
+                  orders={orders} 
+                  onOnboardSeller={handleOnboardSeller} 
+                />
+              )}
+            </>
+          ) : (
+            <>
+              {activeSellerTab === 'dashboard' && (
+                <SellerDashboard sellers={sellers} orders={orders} activeSellerId={activeSellerId} />
+              )}
+              {activeSellerTab === 'browse' && (
+                <BrowseCatalog 
+                  products={products} 
+                  sellerCatalog={sellerCatalog} 
+                  onConfigureCatalog={handleConfigureCatalog} 
+                />
+              )}
+              {activeSellerTab === 'store' && (
+                <MyStoreCatalog 
+                  sellerCatalog={sellerCatalog}
+                  products={products}
+                  onRemoveFromCatalog={handleRemoveFromCatalog}
+                  onEditPrice={(prod) => {
+                    setActiveSellerTab('browse');
+                    // We set tab to browse catalog and defer configure price trigger
+                    setTimeout(() => {
+                      const cardBtn = document.querySelector(`[onclick*='openConfigurePriceModal'][onclick*='${prod.id}']`);
+                      if (cardBtn) cardBtn.click();
+                    }, 100);
+                  }}
+                  onNavigateToBrowse={() => setActiveSellerTab('browse')}
+                />
+              )}
+              {activeSellerTab === 'orders' && (
+                <SellerOrders 
+                  orders={orders}
+                  products={products}
+                  sellerCatalog={sellerCatalog}
+                  activeSellerId={activeSellerId}
+                  onCreateOrder={handleCreateOrder}
+                />
+              )}
+            </>
+          )}
+        </main>
+      </div>
+
+      {/* Floating Reset Button */}
+      <div className="fixed bottom-6 left-6 z-50">
+        <button 
+          onClick={handleResetSimulator}
+          className="inline-flex items-center gap-2 px-3 py-1.5 border border-slate-300 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 text-slate-700 text-xs font-semibold rounded-3xl transition-all shadow-md"
+          title="ล้างข้อมูลจำลองกลับเป็นค่าเริ่มต้น"
+        >
+          <i className="fa-solid fa-rotate-left"></i> รีเซ็ตตัวจำลอง
+        </button>
+      </div>
+
+      {/* Toast Notifications Overlay */}
+      <div className="fixed bottom-6 right-6 z-[2000] flex flex-col gap-3 w-full max-w-[360px]">
+        {toasts.map(t => (
+          <div 
+            key={t.id} 
+            className={`bg-white border-l-4 rounded-lg shadow-modal p-4 flex items-start gap-3.5 border border-slate-100 transition-all duration-300 animate-fade-in ${
+              t.type === 'success' ? 'border-l-status-success' : t.type === 'warning' ? 'border-l-status-warning' : 'border-l-status-error'
+            }`}
+          >
+            <div className="text-base mt-0.5">
+              {t.type === 'success' && <i className="fa-solid fa-circle-check text-status-success-text"></i>}
+              {t.type === 'warning' && <i className="fa-solid fa-circle-exclamation text-status-warning-text"></i>}
+              {t.type === 'error' && <i className="fa-solid fa-circle-xmark text-status-error-text"></i>}
+            </div>
+            <div className="flex-grow text-left">
+              <div className="font-bold text-text-title text-sm">{t.title}</div>
+              <div className="text-xs text-text-body mt-0.5 leading-normal">{t.message}</div>
+              {t.undoCallback && (
+                <button 
+                  onClick={() => {
+                    t.undoCallback();
+                    removeToast(t.id);
+                  }}
+                  className="mt-2 text-xs font-bold text-brand-secondary hover:underline bg-slate-50 px-2 py-1 rounded"
+                >
+                  ยกเลิกรายการ (Undo)
+                </button>
+              )}
+            </div>
+            <button 
+              onClick={() => removeToast(t.id)} 
+              className="text-text-caption hover:text-text-title text-base"
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  );
+}
+
+// Simple internal tab router sync
+function switchRole(role) {
+  // handled in component local triggers
+}
