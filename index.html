@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyMarket Platform — Powered by MyOrder</title>
+    <!-- Google Fonts: Sarabun & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="role-brand">
+    <!-- Top Global Bar -->
+    <header class="global-header">
+        <div class="header-left">
+            <div class="logo">
+                <i class="fa-solid fa-store logo-icon"></i>
+                <div class="logo-text">
+                    <h1>MyMarket</h1>
+                    <span>powered by MyOrder</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Selector Toggle -->
+        <div class="role-selector-container">
+            <button id="btn-role-brand" class="role-btn active" onclick="switchRole('brand')">
+                <i class="fa-solid fa-user-tie"></i> เจ้าของแบรนด์ (Brand Owner)
+            </button>
+            <button id="btn-role-seller" class="role-btn" onclick="switchRole('seller')">
+                <i class="fa-solid fa-users"></i> ตัวแทนจำหน่าย (Seller)
+            </button>
+        </div>
+
+        <div class="header-right">
+            <div class="user-profile">
+                <img id="user-avatar" src="https://api.dicebear.com/7.x/adventurer/svg?seed=Felix" alt="Avatar" class="avatar">
+                <div class="profile-info">
+                    <span id="user-name" class="username">Brand Admin</span>
+                    <span id="user-role-badge" class="role-badge">Owner</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        
+        <!-- ================= BRAND OWNER PANEL ================= -->
+        <section id="brand-panel" class="role-panel">
+            <aside class="sidebar">
+                <nav class="sidebar-nav">
+                    <a href="#" class="nav-item active" onclick="switchTab('brand', 'dashboard', this)">
+                        <i class="fa-solid fa-chart-pie"></i> แดชบอร์ดภาพรวม
+                    </a>
+                    <a href="#" class="nav-item" onclick="switchTab('brand', 'products', this)">
+                        <i class="fa-solid fa-boxes-stacked"></i> การจัดการสินค้า
+                    </a>
+                    <a href="#" class="nav-item" onclick="switchTab('brand', 'orders', this)">
+                        <i class="fa-solid fa-receipt"></i> รายการสั่งซื้อ
+                        <span id="brand-pending-badge" class="nav-badge alert hide">0</span>
+                    </a>
+                    <a href="#" class="nav-item" onclick="switchTab('brand', 'sellers', this)">
+                        <i class="fa-solid fa-network-wired"></i> เครือข่ายตัวแทน
+                    </a>
+                </nav>
+            </aside>
+
+            <div class="content-area">
+                <!-- Brand Dashboard Tab -->
+                <div id="brand-tab-dashboard" class="tab-content active">
+                    <div class="content-header">
+                        <h2>แดชบอร์ดภาพรวม (Brand Owner Dashboard)</h2>
+                        <p>วิเคราะห์ผลการขายและยอดรวมจากเครือข่ายตัวแทนของคุณแบบเรียลไทม์</p>
+                    </div>
+
+                    <!-- Stats Cards Grid -->
+                    <div class="stats-grid">
+                        <div class="stats-card">
+                            <div class="stats-icon primary"><i class="fa-solid fa-sack-dollar"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ยอดขายรวมเครือข่าย</span>
+                                <span id="brand-stat-revenue" class="stats-val">0 THB</span>
+                            </div>
+                        </div>
+                        <div class="stats-card">
+                            <div class="stats-icon success"><i class="fa-solid fa-circle-check"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">คำสั่งซื้อสำเร็จ</span>
+                                <span id="brand-stat-orders" class="stats-val">0 ออเดอร์</span>
+                            </div>
+                        </div>
+                        <div class="stats-card">
+                            <div class="stats-icon warning"><i class="fa-solid fa-users-viewfinder"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ตัวแทนที่แอคทีฟ</span>
+                                <span id="brand-stat-sellers" class="stats-val">0 ราย</span>
+                            </div>
+                        </div>
+                        <div class="stats-card ai-accent">
+                            <div class="stats-icon ai"><i class="fa-solid fa-robot"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ค่าคอมมิชชันจ่ายแล้ว</span>
+                                <span id="brand-stat-commission" class="stats-val">0 THB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Layout for Dashboard Insights -->
+                    <div class="dashboard-grid">
+                        <!-- AI Insights Box -->
+                        <div class="grid-card ai-card">
+                            <div class="ai-card-header">
+                                <div class="ai-title">
+                                    <i class="fa-solid fa-sparkles"></i>
+                                    <h3>คำแนะนำจาก AI Assistant (MyOrder Intelligence)</h3>
+                                </div>
+                                <span class="ai-badge">Live</span>
+                            </div>
+                            <div class="ai-card-body">
+                                <p id="brand-ai-insight">กำลังประมวลผลข้อมูลการขายและพฤติกรรมตัวแทนจำหน่าย...</p>
+                            </div>
+                        </div>
+
+                        <!-- Recent Orders and Tops Sellers -->
+                        <div class="grid-card">
+                            <div class="card-header-simple">
+                                <h3>ตัวแทนยอดขายสูงสุด</h3>
+                            </div>
+                            <div class="table-container">
+                                <table class="app-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ชื่อตัวแทน</th>
+                                            <th>ยอดขายสะสม</th>
+                                            <th>จำนวนคำสั่งซื้อ</th>
+                                            <th>สถานะร้าน</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="brand-top-sellers-list">
+                                        <!-- Dynamic rendering -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brand Product Management Tab -->
+                <div id="brand-tab-products" class="tab-content">
+                    <div class="content-header-action">
+                        <div class="content-header-title">
+                            <h2>การจัดการสินค้า (Product Management)</h2>
+                            <p>สร้างสินค้า กำหนดราคากลาง (Dealer Price) และตั้งค่าเงื่อนไขการจัดส่ง</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openModal('add-product-modal')">
+                            <i class="fa-solid fa-plus"></i> เพิ่มสินค้าใหม่
+                        </button>
+                    </div>
+
+                    <!-- Products Table -->
+                    <div class="table-card">
+                        <div class="table-container">
+                            <table class="app-table">
+                                <thead>
+                                    <tr>
+                                        <th>ภาพสินค้า</th>
+                                        <th>ชื่อสินค้า</th>
+                                        <th>ราคากลาง (Dealer Price)</th>
+                                        <th>จำนวนสต็อก</th>
+                                        <th>ผู้รับผิดชอบค่าส่ง</th>
+                                        <th>สถานะการขาย</th>
+                                        <th>การจัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="brand-products-list">
+                                    <!-- Dynamic product rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brand Order Management Tab -->
+                <div id="brand-tab-orders" class="tab-content">
+                    <div class="content-header">
+                        <h2>รายการสั่งซื้อตัวแทน (Order Verification)</h2>
+                        <p>ตรวจสอบความถูกต้อง ยืนยันสต็อกสินค้า และดำเนินการจัดส่ง (Sync MyOrder)</p>
+                    </div>
+
+                    <!-- Order Sub-Tabs -->
+                    <div class="order-sub-tabs">
+                        <button class="sub-tab-btn active" onclick="filterBrandOrders('ALL', this)">ทั้งหมด</button>
+                        <button class="sub-tab-btn" onclick="filterBrandOrders('PENDING', this)">รอตรวจสอบ <span id="brand-orders-pending-count" class="badge-num red">0</span></button>
+                        <button class="sub-tab-btn" onclick="filterBrandOrders('CONFIRMED', this)">ยืนยันแล้ว</button>
+                        <button class="sub-tab-btn" onclick="filterBrandOrders('SHIPPING', this)">กำลังจัดส่ง</button>
+                        <button class="sub-tab-btn" onclick="filterBrandOrders('DELIVERED', this)">ส่งสำเร็จ</button>
+                        <button class="sub-tab-btn" onclick="filterBrandOrders('REJECTED', this)">ปฏิเสธ</button>
+                    </div>
+
+                    <!-- Orders Table -->
+                    <div class="table-card">
+                        <div class="table-container">
+                            <table class="app-table">
+                                <thead>
+                                    <tr>
+                                        <th>เลขที่ใบสั่งซื้อ</th>
+                                        <th>ตัวแทนจำหน่าย</th>
+                                        <th>ชื่อลูกค้า / โทรศัพท์</th>
+                                        <th>รายการสินค้า</th>
+                                        <th>ยอดเก็บเงินปลายทาง (COD)</th>
+                                        <th>สถานะ</th>
+                                        <th>การดำเนินการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="brand-orders-list">
+                                    <!-- Dynamic order rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brand Seller Network Tab -->
+                <div id="brand-tab-sellers" class="tab-content">
+                    <div class="content-header-action">
+                        <div class="content-header-title">
+                            <h2>เครือข่ายตัวแทนจำหน่าย (Seller Network)</h2>
+                            <p>สิทธิ์การเข้าถึง อัตราส่วนต่างกำไร และการวิเคราะห์รายบุคคล</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="onboardNewSeller()">
+                            <i class="fa-solid fa-user-plus"></i> อนุมัติตัวแทนใหม่
+                        </button>
+                    </div>
+
+                    <!-- Sellers Directory -->
+                    <div id="brand-sellers-grid" class="sellers-grid">
+                        <!-- Dynamic Seller Cards -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= SELLER PANEL ================= -->
+        <section id="seller-panel" class="role-panel" style="display: none;">
+            <aside class="sidebar">
+                <nav class="sidebar-nav">
+                    <a href="#" class="nav-item active" onclick="switchTab('seller', 'dashboard', this)">
+                        <i class="fa-solid fa-chart-line"></i> แผงควบคุมของฉัน
+                    </a>
+                    <a href="#" class="nav-item" onclick="switchTab('seller', 'browse', this)">
+                        <i class="fa-solid fa-magnifying-glass-plus"></i> หาสินค้าไปขาย
+                    </a>
+                    <a href="#" class="nav-item" onclick="switchTab('seller', 'store', this)">
+                        <i class="fa-solid fa-shop"></i> ร้านค้าของฉัน
+                        <span id="seller-catalog-count" class="nav-badge info">0</span>
+                    </a>
+                    <a href="#" class="nav-item" onclick="switchTab('seller', 'orders', this)">
+                        <i class="fa-solid fa-dolly"></i> ออเดอร์และจัดส่ง
+                    </a>
+                </nav>
+            </aside>
+
+            <div class="content-area">
+                <!-- Seller Dashboard Tab -->
+                <div id="seller-tab-dashboard" class="tab-content active">
+                    <div class="content-header">
+                        <h2>แผงควบคุมรายได้ (Seller Performance Dashboard)</h2>
+                        <p>ติดตามผลกำไร ยอดขาย และเป้าหมายการขายเพื่อเพิ่มระดับการเป็นตัวแทน</p>
+                    </div>
+
+                    <!-- Stats Cards Grid -->
+                    <div class="stats-grid">
+                        <div class="stats-card">
+                            <div class="stats-icon primary"><i class="fa-solid fa-chart-bar"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ยอดขายของฉัน (COD)</span>
+                                <span id="seller-stat-revenue" class="stats-val">0 THB</span>
+                            </div>
+                        </div>
+                        <div class="stats-card">
+                            <div class="stats-icon success"><i class="fa-solid fa-wallet"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ส่วนต่างกำไรสุทธิ</span>
+                                <span id="seller-stat-profit" class="stats-val">0 THB</span>
+                            </div>
+                        </div>
+                        <div class="stats-card">
+                            <div class="stats-icon warning"><i class="fa-solid fa-truck-ramp-box"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ออเดอร์ส่งสำเร็จ</span>
+                                <span id="seller-stat-orders" class="stats-val">0 รายการ</span>
+                            </div>
+                        </div>
+                        <div class="stats-card ai-accent">
+                            <div class="stats-icon ai"><i class="fa-solid fa-medal"></i></div>
+                            <div class="stats-data">
+                                <span class="stats-label">ระดับตัวแทน (Tier)</span>
+                                <span id="seller-stat-tier" class="stats-val">Standard Seller</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid Layout for Dashboard Insights -->
+                    <div class="dashboard-grid">
+                        <!-- Margin and Tier growth -->
+                        <div class="grid-card">
+                            <div class="card-header-simple">
+                                <h3>ความคืบหน้าเพื่อปรับระดับ (Tier Progress)</h3>
+                            </div>
+                            <div class="tier-progress-container">
+                                <div class="tier-level-labels">
+                                    <span class="active-tier">Standard (0 THB)</span>
+                                    <span class="next-tier">Pro Seller (20,000 THB)</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div id="seller-tier-progress-bar" class="progress-bar" style="width: 0%;"></div>
+                                </div>
+                                <p id="seller-tier-progress-text" class="progress-helper-text">ขายอีก 20,000 THB เพื่อปลดล็อกส่วนลดราคาสินค้าเพิ่ม 5%!</p>
+                            </div>
+                        </div>
+
+                        <!-- Seller Tip/AI Insights -->
+                        <div class="grid-card ai-card">
+                            <div class="ai-card-header">
+                                <div class="ai-title">
+                                    <i class="fa-solid fa-sparkles"></i>
+                                    <h3>ระบบสแกนตรวจสอบราคากลาง</h3>
+                                </div>
+                                <span class="ai-badge active">คุ้มครองราคา</span>
+                            </div>
+                            <div class="ai-card-body">
+                                <p class="ai-text">
+                                    <strong>นโยบายควบคุมราคากลาง (Price Integrity Guardrail):</strong> 
+                                    คุณสามารถกำหนดราคาขายปลีกเองเพื่อหากำไรส่วนต่างได้อย่างอิสระ แต่ระบบจะไม่ยอมให้ตั้งราคาขายปลีกต่ำกว่าราคากลาง (Dealer Price) ที่แบรนด์กำหนด เพื่อปกป้องผลประโยชน์ของเครือข่ายตัวแทนทั้งหมดและภาพลักษณ์สินค้า
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seller Browse Products Tab -->
+                <div id="seller-tab-browse" class="tab-content">
+                    <div class="content-header">
+                        <h2>หาสินค้าขายดีเข้าหน้าร้าน (Browse Brand Products)</h2>
+                        <p>เลือกสินค้าของแบรนด์ไปแสดงขาย กำหนดราคาปลีก และรับส่วนต่างเมื่อออเดอร์ส่งสำเร็จ</p>
+                    </div>
+
+                    <!-- Products Grid to Add to Store -->
+                    <div id="seller-browse-grid" class="products-grid">
+                        <!-- Dynamic items from brand -->
+                    </div>
+                </div>
+
+                <!-- Seller My Catalog Tab -->
+                <div id="seller-tab-store" class="tab-content">
+                    <div class="content-header">
+                        <h2>ร้านค้าของฉัน (My Store Catalog)</h2>
+                        <p>จัดการราคาสินค้าที่คุณขาย ปรับเปลี่ยนราคาตามกลยุทธ์การขายปลีก (ห้ามต่ำกว่าราคากลาง)</p>
+                    </div>
+
+                    <!-- Store Table/Grid -->
+                    <div id="seller-store-empty" class="empty-state">
+                        <i class="fa-solid fa-cart-flatbed-suitcase empty-icon"></i>
+                        <h3>ร้านของคุณยังไม่มีสินค้าสำหรับเสนอขาย</h3>
+                        <p>ไปที่แท็บ "หาสินค้าไปขาย" และเลือกสินค้าแบรนด์เข้าสู่ร้านค้าของคุณเพื่อรับรายได้ทันที</p>
+                        <button class="btn btn-primary" onclick="switchTab('seller', 'browse', document.querySelector('[onclick*=\'browse\']'))">
+                            เลือกชมสินค้าตอนนี้
+                        </button>
+                    </div>
+
+                    <div id="seller-store-catalog" class="table-card hide">
+                        <div class="table-container">
+                            <table class="app-table">
+                                <thead>
+                                    <tr>
+                                        <th>ภาพสินค้า</th>
+                                        <th>ชื่อสินค้า</th>
+                                        <th>ราคากลาง (Dealer Price)</th>
+                                        <th>ราคาขายปลีกของคุณ (Selling Price)</th>
+                                        <th>ส่วนต่างกำไรต่อชิ้น</th>
+                                        <th>จำนวนสต็อกคงคลัง</th>
+                                        <th>การจัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="seller-store-list">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Seller Orders & Shipping Tab -->
+                <div id="seller-tab-orders" class="tab-content">
+                    <div class="content-header-action">
+                        <div class="content-header-title">
+                            <h2>รายการสั่งซื้อและติดตามพัสดุ (Orders & Tracking)</h2>
+                            <p>สร้างออเดอร์ปลายทาง (COD) ให้ลูกค้า ติดตามสถานะจัดส่งจากคลังสินค้าหลักของแบรนด์</p>
+                        </div>
+                        <button id="btn-create-order" class="btn btn-secondary" onclick="openCreateOrderModal()">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> สร้างออเดอร์ใหม่ (COD)
+                        </button>
+                    </div>
+
+                    <!-- Orders List for Seller -->
+                    <div class="table-card">
+                        <div class="table-container">
+                            <table class="app-table">
+                                <thead>
+                                    <tr>
+                                        <th>เลขที่ใบสั่งซื้อ</th>
+                                        <th>ชื่อลูกค้า / โทรศัพท์</th>
+                                        <th>รายการสินค้า</th>
+                                        <th>ราคาขายปลีก</th>
+                                        <th>กำไรที่คุณได้รับ</th>
+                                        <th>สถานะ (MyOrder)</th>
+                                        <th>เลขพัสดุ / ขนส่ง</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="seller-orders-list">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ================= MODALS CONTAINER ================= -->
+    
+    <!-- Modal 1: Brand Add Product -->
+    <div id="add-product-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-plus"></i> เพิ่มสินค้าใหม่เข้าระบบ</h3>
+                <button class="modal-close" onclick="closeModal('add-product-modal')">&times;</button>
+            </div>
+            <form id="form-add-product" onsubmit="handleBrandAddProduct(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="p-name">ชื่อสินค้า <span class="required">*</span></label>
+                        <input type="text" id="p-name" class="form-control-input" required placeholder="เช่น เนื้อชิ้นวากิว A5">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="p-dealer-price">ราคากลาง Dealer Price (THB) <span class="required">*</span></label>
+                            <input type="number" id="p-dealer-price" class="form-control-input" required min="1" placeholder="ราคาส่งขั้นต่ำ">
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="p-stock">จำนวนสต็อกคงเหลือ <span class="required">*</span></label>
+                            <input type="number" id="p-stock" class="form-control-input" required min="0" placeholder="จำนวนสินค้าในคลัง">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="p-shipping">การจัดการค่าส่งสินค้า <span class="required">*</span></label>
+                        <select id="p-shipping" class="form-control-input" required>
+                            <option value="">-- โปรดเลือกข้อตกลงค่าจัดส่ง --</option>
+                            <option value="CUSTOMER">ลูกค้าเป็นผู้รับผิดชอบค่าขนส่ง (คำนวณตามจริง)</option>
+                            <option value="BRAND">แบรนด์สนับสนุนค่าส่งให้ (ส่งฟรีสำหรับตัวแทน)</option>
+                        </select>
+                        <span class="help-block">หากยังไม่กำหนดค่าจัดส่ง สินค้าจะมีสถานะเป็น Inactive ทันที</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="p-image">ลิงก์รูปภาพสินค้า (เว้นว่างได้ ระบบจะสุ่มรูปภาพพรีเมียมให้)</label>
+                        <input type="url" id="p-image" class="form-control-input" placeholder="https://example.com/image.jpg">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('add-product-modal')">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary">ยืนยันบันทึกสินค้า</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: Seller Configure Product Price -->
+    <div id="configure-price-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-check"></i> เพิ่มสินค้าเข้าสู่ร้านค้าของคุณ</h3>
+                <button class="modal-close" onclick="closeModal('configure-price-modal')">&times;</button>
+            </div>
+            <form id="form-configure-price" onsubmit="handleConfigurePriceSubmit(event)">
+                <input type="hidden" id="conf-p-id">
+                <div class="modal-body">
+                    <div class="product-summary-card">
+                        <img id="conf-p-img" src="" alt="Product" class="product-summary-img">
+                        <div class="product-summary-info">
+                            <h4 id="conf-p-name">ชื่อสินค้า</h4>
+                            <p>รหัสสินค้า: <span id="conf-p-code">---</span></p>
+                            <p class="dealer-price-badge">ราคากลาง Dealer Price: <strong id="conf-p-dealer-price">0</strong> THB</p>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group margin-top">
+                        <label for="conf-p-selling-price">ตั้งราคาเสนอขายปลีกของร้านคุณ (THB) <span class="required">*</span></label>
+                        <input type="number" id="conf-p-selling-price" class="form-control-input text-lg" required min="1">
+                        <span class="help-block error-message hide" id="conf-p-price-error">
+                            <i class="fa-solid fa-circle-exclamation"></i> ราคาขายปลีกห้ามต่ำกว่าราคากลางที่แบรนด์กำหนด (<span id="conf-p-min-allowed">0</span> THB)
+                        </span>
+                    </div>
+
+                    <div class="pricing-calculator">
+                        <h4>เครื่องคำนวณกำไรโดยประมาณ (ต่อชิ้น)</h4>
+                        <div class="calc-row">
+                            <span>ราคาขายปลีกของคุณ:</span>
+                            <span id="calc-retail-val">0 THB</span>
+                        </div>
+                        <div class="calc-row text-muted">
+                            <span>หักราคากลางของแบรนด์:</span>
+                            <span id="calc-dealer-val">-0 THB</span>
+                        </div>
+                        <div class="calc-row total-profit">
+                            <span>ส่วนต่างกำไรสุทธิ:</span>
+                            <span id="calc-profit-val" class="success">0 THB</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('configure-price-modal')">ยกเลิก</button>
+                    <button type="submit" id="btn-confirm-catalog" class="btn btn-secondary">ยืนยันนำเข้าสินค้า</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Seller Create COD Order -->
+    <div id="create-order-modal" class="modal-overlay">
+        <div class="modal-card max-width-lg">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-file-circle-plus"></i> สร้างคำสั่งซื้อใหม่ (เก็บเงินปลายทาง COD)</h3>
+                <button class="modal-close" onclick="closeModal('create-order-modal')">&times;</button>
+            </div>
+            <form id="form-create-order" onsubmit="handleCreateOrderSubmit(event)">
+                <div class="modal-body grid-form">
+                    <!-- Left Section: Customer Info -->
+                    <div class="form-section">
+                        <h4><i class="fa-solid fa-user-tag"></i> ข้อมูลผู้รับปลายทาง (ลูกค้า)</h4>
+                        <div class="form-group">
+                            <label for="o-cust-name">ชื่อ-นามสกุล ผู้รับพัสดุ <span class="required">*</span></label>
+                            <input type="text" id="o-cust-name" class="form-control-input" required placeholder="เช่น นายสมชาย ใจดี">
+                        </div>
+                        <div class="form-group">
+                            <label for="o-cust-phone">เบอร์โทรศัพท์ผู้รับ <span class="required">*</span></label>
+                            <input type="tel" id="o-cust-phone" class="form-control-input" required placeholder="เช่น 0891234567">
+                        </div>
+                        <div class="form-group">
+                            <label for="o-cust-address">ที่อยู่สำหรับจัดส่งอย่างละเอียด <span class="required">*</span></label>
+                            <textarea id="o-cust-address" class="form-control-input text-area" rows="3" required placeholder="เลขที่ ซอย ถนน แขวง เขต จังหวัด รหัสไปรษณีย์"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Right Section: Product & Payment -->
+                    <div class="form-section border-left">
+                        <h4><i class="fa-solid fa-cart-shopping"></i> ข้อมูลรายการขายและราคา</h4>
+                        <div class="form-group">
+                            <label for="o-product-select">เลือกสินค้าจากหน้าร้านของคุณ <span class="required">*</span></label>
+                            <select id="o-product-select" class="form-control-input" required onchange="handleOrderProductChange()">
+                                <option value="">-- โปรดเลือกสินค้าของคุณ --</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group flex-1">
+                                <label for="o-qty">จำนวนชิ้น <span class="required">*</span></label>
+                                <input type="number" id="o-qty" class="form-control-input" required min="1" value="1" oninput="calculateOrderTotal()">
+                                <span class="help-block" id="o-stock-info">สต็อกคงคลัง: 0 ชิ้น</span>
+                            </div>
+                            <div class="form-group flex-1">
+                                <label for="o-selling-price">ราคาขายต่อชิ้น (THB) <span class="required">*</span></label>
+                                <input type="number" id="o-selling-price" class="form-control-input" required min="1" oninput="calculateOrderTotal()">
+                                <span class="help-block text-danger hide" id="o-price-error">ห้ามต่ำกว่าราคากลาง (<span id="o-min-price-allowed">0</span> THB)</span>
+                            </div>
+                        </div>
+
+                        <!-- Total Summary -->
+                        <div class="order-total-summary">
+                            <div class="total-row">
+                                <span>ยอดเก็บเงินปลายทางรวม (COD):</span>
+                                <span id="o-total-amount" class="total-val">0 THB</span>
+                            </div>
+                            <div class="total-row text-muted">
+                                <span>ราคาทุนแบรนด์ (Dealer Cost):</span>
+                                <span id="o-total-dealer-cost">0 THB</span>
+                            </div>
+                            <div class="total-row total-profit border-top">
+                                <span>รายได้ส่วนต่างที่จะโอนเข้าวอลเล็ตคุณ:</span>
+                                <span id="o-total-profit" class="success-val">0 THB</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('create-order-modal')">ยกเลิก</button>
+                    <button type="submit" id="btn-submit-order" class="btn btn-secondary">ส่งคำสั่งซื้อเข้าระบบ MyOrder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 4: Brand Reject Order Prompt -->
+    <div id="reject-order-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header bg-danger">
+                <h3><i class="fa-solid fa-ban"></i> ปฏิเสธคำสั่งซื้อ</h3>
+                <button class="modal-close" onclick="closeModal('reject-order-modal')">&times;</button>
+            </div>
+            <form id="form-reject-order" onsubmit="handleRejectOrderSubmit(event)">
+                <input type="hidden" id="reject-o-id">
+                <div class="modal-body">
+                    <p class="alert-desc">ระบุเหตุผลในการปฏิเสธการยืนยันออเดอร์นี้ เพื่อแจ้งกลับตัวแทนจำหน่ายในระบบ</p>
+                    <div class="form-group">
+                        <label for="reject-reason">สาเหตุการปฏิเสธ <span class="required">*</span></label>
+                        <select id="reject-reason" class="form-control-input" required onchange="handleRejectReasonChange()">
+                            <option value="">-- โปรดเลือกสาเหตุ --</option>
+                            <option value="STOCK_MISMATCH">สต็อกคลาดเคลื่อน / สินค้าหมดชั่วคราว</option>
+                            <option value="PRICE_VIOLATION">ราคาขายปลีกผิดกฎเงื่อนไขควบคุมของแบรนด์</option>
+                            <option value="INVALID_ADDRESS">ที่อยู่จัดส่งและเบอร์ติดต่อไม่ถูกต้อง</option>
+                            <option value="OTHER">อื่นๆ (กรุณาระบุ)</option>
+                        </select>
+                    </div>
+                    <div id="reject-reason-text-group" class="form-group hide">
+                        <label for="reject-reason-text">รายละเอียดเพิ่มเติม</label>
+                        <textarea id="reject-reason-text" class="form-control-input" rows="2" placeholder="ระบุเหตุผลโดยย่อ..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('reject-order-modal')">ยกเลิก</button>
+                    <button type="submit" class="btn btn-danger">ยืนยันการปฏิเสธ</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Reset Simulation Control -->
+    <div class="reset-control">
+        <button class="btn btn-sm btn-outline-dark" onclick="resetState()" title="ล้างข้อมูลจำลองกลับเป็นค่าเริ่มต้น">
+            <i class="fa-solid fa-rotate-left"></i> รีเซ็ตตัวจำลอง
+        </button>
+    </div>
+
+    <!-- Logic Controller Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
