@@ -79,11 +79,12 @@ export default function App() {
     const success = urlParams.get('payment_success');
     const orderId = urlParams.get('order_id');
     const sessionId = urlParams.get('session_id');
+    const connectedAccountId = urlParams.get('connected_account_id');
 
     if (success === 'true' && orderId && sessionId) {
       window.history.replaceState({}, document.title, window.location.pathname);
       setTimeout(() => {
-        handleCheckPaymentStatusAfterRedirect(orderId, sessionId);
+        handleCheckPaymentStatusAfterRedirect(orderId, sessionId, connectedAccountId);
       }, 800);
       return;
     }
@@ -410,6 +411,7 @@ export default function App() {
       rejectReason: "",
       stripeSessionId: "",
       stripePaymentUrl: "",
+      stripeConnectedAccountId: formValues.paymentMethod === 'STRIPE' ? (currentRole === 'seller' ? sellerStripeAccountId : brandStripeAccountId) : "",
       ...formValues
     };
 
@@ -419,6 +421,7 @@ export default function App() {
 
     if (formValues.paymentMethod === 'STRIPE') {
       try {
+        const connAccId = currentRole === 'seller' ? sellerStripeAccountId : brandStripeAccountId;
         const response = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -427,7 +430,8 @@ export default function App() {
             name: product.name,
             amount: formValues.sellingPrice,
             qty: formValues.qty,
-            orderId: orderId
+            orderId: orderId,
+            connectedAccountId: connAccId
           })
         });
         const data = await response.json();
@@ -467,7 +471,8 @@ export default function App() {
 
     try {
       showToast("กำลังตรวจสอบ", "กำลังดึงข้อมูลการชำระเงินจาก Stripe...", "warning");
-      const response = await fetch(`/api/check-session-status?session_id=${order.stripeSessionId}`);
+      const connAccId = order.stripeConnectedAccountId || "";
+      const response = await fetch(`/api/check-session-status?session_id=${order.stripeSessionId}${connAccId ? `&connected_account_id=${connAccId}` : ''}`);
       const data = await response.json();
       
       if (data.payment_status === 'paid') {
@@ -487,9 +492,9 @@ export default function App() {
     }
   };
 
-  const handleCheckPaymentStatusAfterRedirect = async (orderId, sessionId) => {
+  const handleCheckPaymentStatusAfterRedirect = async (orderId, sessionId, connectedAccountId) => {
     try {
-      const response = await fetch(`/api/check-session-status?session_id=${sessionId}`);
+      const response = await fetch(`/api/check-session-status?session_id=${sessionId}${connectedAccountId ? `&connected_account_id=${connectedAccountId}` : ''}`);
       const data = await response.json();
       
       if (data.payment_status === 'paid') {
