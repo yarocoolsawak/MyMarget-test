@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus }) {
+export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus, sellerStripeConnected }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form states
@@ -72,6 +72,11 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!selectedProductId || priceError || stockError || !customerName || !customerPhone || !customerAddress) return;
+
+    if (paymentMethod === 'STRIPE' && !sellerStripeConnected) {
+      alert("กรุณาเชื่อมต่อบัญชีรับเงิน Stripe ก่อนดำเนินรายการสั่งซื้อแบบโอนเงิน");
+      return;
+    }
 
     onCreateOrder({
       productId: selectedProductId,
@@ -345,8 +350,17 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                       required
                     >
                       <option value="COD">เก็บเงินปลายทาง (COD)</option>
-                      <option value="STRIPE">โอนเงินผ่านระบบ (Stripe - บัตรเครดิต/เดบิต)</option>
+                      <option value="STRIPE">
+                        {sellerStripeConnected 
+                          ? "โอนเงินผ่านระบบ (Stripe - บัตรเครดิต/เดบิต)" 
+                          : "โอนเงินผ่านระบบ (Stripe - กรุณาเชื่อมบัญชีที่แดชบอร์ด)"}
+                      </option>
                     </select>
+                    {paymentMethod === 'STRIPE' && !sellerStripeConnected && (
+                      <span className="text-[10px] text-status-error-text font-semibold mt-1">
+                        <i className="fa-solid fa-triangle-exclamation"></i> กรุณาเชื่อมต่อบัญชีรับเงิน Stripe ที่ "แผงควบคุมของฉัน" ก่อนสร้างออเดอร์โอนเงิน
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -446,9 +460,9 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                 </button>
                 <button 
                   type="submit" 
-                  disabled={priceError || stockError || !selectedProductId}
+                  disabled={priceError || stockError || !selectedProductId || (paymentMethod === 'STRIPE' && !sellerStripeConnected)}
                   className={`px-5 py-2 text-white font-semibold rounded-3xl shadow-button text-sm transition-all ${
-                    (priceError || stockError || !selectedProductId)
+                    (priceError || stockError || !selectedProductId || (paymentMethod === 'STRIPE' && !sellerStripeConnected))
                       ? 'bg-slate-300 cursor-not-allowed opacity-50' 
                       : 'bg-brand-secondary hover:bg-brand-secondary-hover'
                   }`}

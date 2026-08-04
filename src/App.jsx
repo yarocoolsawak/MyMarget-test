@@ -17,6 +17,7 @@ import SellerDashboard from './components/SellerDashboard';
 import BrowseCatalog from './components/BrowseCatalog';
 import MyStoreCatalog from './components/MyStoreCatalog';
 import SellerOrders from './components/SellerOrders';
+import StripeConnectModal from './components/StripeConnectModal';
 
 export default function App() {
   // --- STATE SECTIONS ---
@@ -35,6 +36,13 @@ export default function App() {
   
   const [toasts, setToasts] = useState([]);
   
+  const [brandStripeConnected, setBrandStripeConnected] = useState(false);
+  const [brandStripeAccountId, setBrandStripeAccountId] = useState('');
+  const [sellerStripeConnected, setSellerStripeConnected] = useState(false);
+  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('');
+  const [stripeModalOpen, setStripeModalOpen] = useState(false);
+  const [stripeModalRole, setStripeModalRole] = useState('brand');
+  
   const activeSellerId = 's2'; // fixed active seller for prototype testing
 
   // --- INITIALIZE & SAVE ---
@@ -47,6 +55,10 @@ export default function App() {
         setSellers(parsed.sellers || DEFAULT_SELLERS);
         setOrders(parsed.orders || DEFAULT_ORDERS);
         setSellerCatalog(parsed.sellerCatalog || DEFAULT_SELLER_CATALOG);
+        setBrandStripeConnected(parsed.brandStripeConnected || false);
+        setBrandStripeAccountId(parsed.brandStripeAccountId || '');
+        setSellerStripeConnected(parsed.sellerStripeConnected || false);
+        setSellerStripeAccountId(parsed.sellerStripeAccountId || '');
         return;
       } catch (e) {
         console.error("Failed to parse localStorage state", e);
@@ -77,12 +89,16 @@ export default function App() {
     }
   }, []);
 
-  const saveState = (updatedProducts, updatedSellers, updatedOrders, updatedCatalog) => {
+  const saveState = (updatedProducts, updatedSellers, updatedOrders, updatedCatalog, extraState = {}) => {
     localStorage.setItem('mymarket_react_state', JSON.stringify({
       products: updatedProducts || products,
       sellers: updatedSellers || sellers,
       orders: updatedOrders || orders,
-      sellerCatalog: updatedCatalog || sellerCatalog
+      sellerCatalog: updatedCatalog || sellerCatalog,
+      brandStripeConnected: extraState.brandStripeConnected !== undefined ? extraState.brandStripeConnected : brandStripeConnected,
+      brandStripeAccountId: extraState.brandStripeAccountId !== undefined ? extraState.brandStripeAccountId : brandStripeAccountId,
+      sellerStripeConnected: extraState.sellerStripeConnected !== undefined ? extraState.sellerStripeConnected : sellerStripeConnected,
+      sellerStripeAccountId: extraState.sellerStripeAccountId !== undefined ? extraState.sellerStripeAccountId : sellerStripeAccountId
     }));
   };
 
@@ -110,8 +126,52 @@ export default function App() {
       setSellers([...DEFAULT_SELLERS]);
       setOrders([...DEFAULT_ORDERS]);
       setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
+      setBrandStripeConnected(false);
+      setBrandStripeAccountId('');
+      setSellerStripeConnected(false);
+      setSellerStripeAccountId('');
       localStorage.removeItem('mymarket_react_state');
       showToast("รีเซ็ตสำเร็จ", "ข้อมูลจำลองได้ถูกปรับกลับเป็นค่าเริ่มต้นแล้ว", "success");
+    }
+  };
+
+  const handleConnectStripe = (role, details) => {
+    if (role === 'brand') {
+      setBrandStripeConnected(true);
+      setBrandStripeAccountId(details.accountId);
+      saveState(null, null, null, null, {
+        brandStripeConnected: true,
+        brandStripeAccountId: details.accountId
+      });
+      showToast("เชื่อมต่อ Stripe สำเร็จ", `บัญชีรับเงินของแบรนด์ได้รับการเชื่อมต่อแล้ว (${details.accountId})`, "success");
+    } else {
+      setSellerStripeConnected(true);
+      setSellerStripeAccountId(details.accountId);
+      saveState(null, null, null, null, {
+        sellerStripeConnected: true,
+        sellerStripeAccountId: details.accountId
+      });
+      showToast("เชื่อมต่อ Stripe สำเร็จ", `บัญชีรับเงินของตัวแทนได้รับการเชื่อมต่อแล้ว (${details.accountId})`, "success");
+    }
+  };
+
+  const handleDisconnectStripe = (role) => {
+    if (role === 'brand') {
+      setBrandStripeConnected(false);
+      setBrandStripeAccountId('');
+      saveState(null, null, null, null, {
+        brandStripeConnected: false,
+        brandStripeAccountId: ''
+      });
+      showToast("ยกเลิกการเชื่อมต่อ", "ยกเลิกการเชื่อมต่อบัญชีรับเงินของแบรนด์เรียบร้อยแล้ว", "warning");
+    } else {
+      setSellerStripeConnected(false);
+      setSellerStripeAccountId('');
+      saveState(null, null, null, null, {
+        sellerStripeConnected: false,
+        sellerStripeAccountId: ''
+      });
+      showToast("ยกเลิกการเชื่อมต่อ", "ยกเลิกการเชื่อมต่อบัญชีรับเงินของตัวแทนจำหน่ายเรียบร้อยแล้ว", "warning");
     }
   };
 
@@ -609,7 +669,18 @@ export default function App() {
           {currentRole === 'brand' ? (
             <>
               {activeBrandTab === 'dashboard' && (
-                <BrandDashboard products={products} sellers={sellers} orders={orders} />
+                <BrandDashboard 
+                  products={products} 
+                  sellers={sellers} 
+                  orders={orders} 
+                  stripeConnected={brandStripeConnected}
+                  stripeAccountId={brandStripeAccountId}
+                  onOpenStripeConnect={() => {
+                    setStripeModalRole('brand');
+                    setStripeModalOpen(true);
+                  }}
+                  onDisconnectStripe={() => handleDisconnectStripe('brand')}
+                />
               )}
               {activeBrandTab === 'products' && (
                 <ProductManagement 
@@ -641,8 +712,19 @@ export default function App() {
             </>
           ) : (
             <>
-              {activeSellerTab === 'dashboard' && (
-                <SellerDashboard sellers={sellers} orders={orders} activeSellerId={activeSellerId} />
+               {activeSellerTab === 'dashboard' && (
+                <SellerDashboard 
+                  sellers={sellers} 
+                  orders={orders} 
+                  activeSellerId={activeSellerId} 
+                  stripeConnected={sellerStripeConnected}
+                  stripeAccountId={sellerStripeAccountId}
+                  onOpenStripeConnect={() => {
+                    setStripeModalRole('seller');
+                    setStripeModalOpen(true);
+                  }}
+                  onDisconnectStripe={() => handleDisconnectStripe('seller')}
+                />
               )}
               {activeSellerTab === 'browse' && (
                 <BrowseCatalog 
@@ -668,13 +750,14 @@ export default function App() {
                 />
               )}
               {activeSellerTab === 'orders' && (
-                <SellerOrders 
+                 <SellerOrders 
                   orders={orders}
                   products={products}
                   sellerCatalog={sellerCatalog}
                   activeSellerId={activeSellerId}
                   onCreateOrder={handleCreateOrder}
                   onCheckPaymentStatus={handleCheckPaymentStatus}
+                  sellerStripeConnected={sellerStripeConnected}
                 />
               )}
             </>
@@ -731,7 +814,14 @@ export default function App() {
           </div>
         ))}
       </div>
-
+ 
+      {/* Stripe Connect Simulation Modal */}
+      <StripeConnectModal 
+        role={stripeModalRole}
+        isOpen={stripeModalOpen}
+        onClose={() => setStripeModalOpen(false)}
+        onConnect={handleConnectStripe}
+      />
     </div>
   );
 }

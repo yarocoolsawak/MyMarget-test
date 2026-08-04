@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function SellerDashboard({ sellers, orders, activeSellerId }) {
+export default function SellerDashboard({ sellers, orders, activeSellerId, stripeConnected, stripeAccountId, onOpenStripeConnect, onDisconnectStripe }) {
   const sellerObj = sellers.find(s => s.id === activeSellerId) || { name: "ตัวแทนจำหน่าย", tier: "Standard Seller", totalSales: 0 };
   
   // Calculations
@@ -15,9 +15,33 @@ export default function SellerDashboard({ sellers, orders, activeSellerId }) {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold text-text-title">แผงควบคุมรายได้ (Seller Performance Dashboard)</h2>
-        <p className="text-text-caption text-sm">ติดตามผลกำไร ยอดขาย และเป้าหมายการขายเพื่อเพิ่มระดับการเป็นตัวแทน</p>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <h2 className="text-2xl font-semibold text-text-title">แผงควบคุมรายได้ (Seller Performance Dashboard)</h2>
+          <p className="text-text-caption text-sm">ติดตามผลกำไร ยอดขาย และเป้าหมายการขายเพื่อเพิ่มระดับการเป็นตัวแทน</p>
+        </div>
+        <div>
+          {stripeConnected ? (
+            <div className="flex items-center gap-2 bg-status-success-bg border border-green-200 px-4 py-2 rounded-3xl text-xs font-semibold text-status-success-text">
+              <i className="fa-brands fa-stripe text-lg"></i>
+              <span>เชื่อมบัญชีรับเงินแล้ว ({stripeAccountId})</span>
+              <button 
+                onClick={onDisconnectStripe}
+                className="ml-2 text-slate-400 hover:text-status-error-text transition-colors"
+                title="ยกเลิกการเชื่อมต่อ"
+              >
+                <i className="fa-solid fa-circle-xmark"></i>
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={onOpenStripeConnect}
+              className="inline-flex items-center gap-2 px-4.5 py-2.5 bg-[#635BFF] hover:bg-[#5048e5] text-white text-xs font-semibold rounded-3xl shadow-button transition-all duration-200 animate-pulse"
+            >
+              <i className="fa-brands fa-stripe text-lg"></i> เชื่อมบัญชีรับเงิน (Stripe)
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats Grid */}
