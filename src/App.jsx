@@ -23,6 +23,10 @@ export default function App() {
   const [currentRole, setCurrentRole] = useState('brand');
   const [activeBrandTab, setActiveBrandTab] = useState('dashboard');
   const [activeSellerTab, setActiveSellerTab] = useState('dashboard');
+
+  const switchRole = (role) => {
+    setCurrentRole(role);
+  };
   
   const [products, setProducts] = useState([]);
   const [sellers, setSellers] = useState([]);
@@ -614,9 +618,4 @@ export default function App() {
 
     </div>
   );
-}
-
-// Simple internal tab router sync
-function switchRole(role) {
-  // handled in component local triggers
 }
