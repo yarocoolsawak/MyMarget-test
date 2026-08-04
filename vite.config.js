@@ -126,7 +126,6 @@ export default defineConfig({
               // Create custom Express account
               const account = await stripe.accounts.create({
                 type: 'express',
-                country: 'TH',
                 capabilities: {
                   card_payments: { requested: true },
                   transfers: { requested: true },
