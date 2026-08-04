@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder }) {
+export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Form states
@@ -10,6 +10,7 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
   const [selectedProductId, setSelectedProductId] = useState('');
   const [qty, setQty] = useState(1);
   const [sellingPrice, setSellingPrice] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('COD');
   
   // Validation states
   const [stockCount, setStockCount] = useState(0);
@@ -64,6 +65,7 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
     setCustomerAddress('');
     setSelectedProductId('');
     setQty(1);
+    setPaymentMethod('COD');
     setIsModalOpen(true);
   };
 
@@ -77,7 +79,8 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
       sellingPrice: parseFloat(sellingPrice),
       customerName,
       customerPhone,
-      customerAddress
+      customerAddress,
+      paymentMethod
     });
 
     setIsModalOpen(false);
@@ -205,10 +208,50 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                       </td>
                       <td className="p-4 text-xs">
                         {o.status === "PENDING" && (
-                          <span className="text-text-caption">แบรนด์กำลังตรวจสอบสต็อก</span>
+                          o.paymentMethod === 'STRIPE' ? (
+                            o.stripePaymentUrl ? (
+                              <div className="flex flex-col gap-1.5 max-w-[160px]">
+                                <span className="text-[10px] text-slate-500 font-medium">ลูกค้าชำระเงินออนไลน์ (Stripe)</span>
+                                <div className="flex items-center gap-1">
+                                  <a href={o.stripePaymentUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-brand-secondary hover:bg-brand-secondary-hover text-white text-[10px] font-semibold rounded-md inline-flex items-center gap-1 shadow-sm transition-colors">
+                                    <i className="fa-solid fa-external-link text-[8px]"></i> จ่ายเงิน
+                                  </a>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(o.stripePaymentUrl);
+                                      alert("คัดลอกลิงก์การชำระเงินไปยังคลิปบอร์ดแล้ว! สามารถส่งลิงก์นี้ให้ลูกค้าได้ทันที");
+                                    }}
+                                    className="w-6 h-6 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 flex items-center justify-center border border-slate-200"
+                                    title="คัดลอกลิงก์"
+                                  >
+                                    <i className="fa-regular fa-copy text-[10px]"></i>
+                                  </button>
+                                </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => onCheckPaymentStatus(o.id)}
+                                  className="px-2 py-0.5 border border-slate-200 hover:bg-slate-50 text-[10px] font-medium text-slate-600 rounded flex items-center justify-center gap-1 transition-all mt-0.5"
+                                >
+                                  <i className="fa-solid fa-rotate text-[8px] text-slate-400"></i> เช็คสถานะจ่ายเงิน
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">กำลังสร้างลิงก์ชำระเงิน...</span>
+                            )
+                          ) : (
+                            <span className="text-text-caption">แบรนด์กำลังตรวจสอบสต็อก</span>
+                          )
                         )}
                         {o.status === "CONFIRMED" && (
-                          <span className="text-text-caption">กำลังเตรียมแพ็คสินค้า</span>
+                          <div className="flex flex-col">
+                            <span className="text-text-caption">กำลังเตรียมแพ็คสินค้า</span>
+                            {o.paymentMethod === 'STRIPE' && (
+                              <span className="text-[10px] text-status-success-text font-bold mt-0.5">
+                                <i className="fa-solid fa-circle-check text-[9px]"></i> ชำระเงินแล้ว (Stripe)
+                              </span>
+                            )}
+                          </div>
                         )}
                         {o.status === "SHIPPING" && (
                           <div>
@@ -292,6 +335,18 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                       required
                       placeholder="เลขที่ ซอย ถนน แขวง เขต จังหวัด รหัสไปรษณีย์"
                     />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-text-title text-xs">ช่องทางการชำระเงิน <span className="text-status-error-text">*</span></label>
+                    <select
+                      value={paymentMethod}
+                      onChange={e => setPaymentMethod(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-slate-50 text-xs focus:outline-none focus:border-brand-secondary"
+                      required
+                    >
+                      <option value="COD">เก็บเงินปลายทาง (COD)</option>
+                      <option value="STRIPE">โอนเงินผ่านระบบ (Stripe - บัตรเครดิต/เดบิต)</option>
+                    </select>
                   </div>
                 </div>
 

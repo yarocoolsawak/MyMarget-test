@@ -1,7 +1,118 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import Stripe from 'stripe'
+import dotenv from 'dotenv'
+
+// Load env variables from .env.local
+dotenv.config({ path: '.env.local' })
+
+// Helper to parse POST request body
+function parseRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch (err) {
+        reject(err);
+      }
+    });
+    req.on('error', err => reject(err));
+  });
+}
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'stripe-api-middleware',
+      configureServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          // Endpoint 1: Create Stripe Checkout Session
+          if (req.url === '/api/create-checkout-session' && req.method === 'POST') {
+            try {
+              const body = await parseRequestBody(req);
+              const { name, amount, qty, orderId } = body;
+              
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable in .env.local' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              
+              const session = await stripe.checkout.sessions.create({
+                payment_method_types: ['card'],
+                line_items: [
+                  {
+                    price_data: {
+                      currency: 'thb',
+                      product_data: {
+                        name: name || 'คำสั่งซื้อจาก MyMarket',
+                      },
+                      unit_amount: Math.round(amount * 100), // in Satang
+                    },
+                    quantity: qty || 1,
+                  },
+                ],
+                mode: 'payment',
+                success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+                cancel_url: `http://localhost:5173/?payment_cancel=true&order_id=${orderId}`,
+              });
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ url: session.url, id: session.id }));
+            } catch (err) {
+              console.error("Stripe error creating session:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
+          // Endpoint 2: Retrieve Stripe Session Status
+          if (req.url.startsWith('/api/check-session-status') && req.method === 'GET') {
+            try {
+              const url = new URL(req.url, 'http://localhost:5173');
+              const sessionId = url.searchParams.get('session_id');
+
+              if (!sessionId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing session_id query parameter' }));
+                return;
+              }
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ 
+                status: session.status, 
+                payment_status: session.payment_status 
+              }));
+            } catch (err) {
+              console.error("Stripe error retrieving session:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
+          // Otherwise, fall through to other middleware
+          next();
+        });
+      }
+    }
+  ],
 })

@@ -59,6 +59,24 @@ export default function App() {
     setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
   }, []);
 
+  // Handle Stripe Redirect verification
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('payment_success');
+    const orderId = urlParams.get('order_id');
+    const sessionId = urlParams.get('session_id');
+
+    if (success === 'true' && orderId && sessionId) {
+      // Clear URL params from window location
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Delay slightly for initial state load
+      setTimeout(() => {
+        handleCheckPaymentStatusAfterRedirect(orderId, sessionId);
+      }, 800);
+    }
+  }, []);
+
   const saveState = (updatedProducts, updatedSellers, updatedOrders, updatedCatalog) => {
     localStorage.setItem('mymarket_react_state', JSON.stringify({
       products: updatedProducts || products,
@@ -278,7 +296,7 @@ export default function App() {
     });
   };
 
-  const handleCreateOrder = (formValues) => {
+  const handleCreateOrder = async (formValues) => {
     const orderId = "MM-" + Math.floor(1004 + Math.random() * 8999);
     const product = products.find(p => p.id === formValues.productId);
     const profit = (formValues.sellingPrice - product.dealerPrice) * formValues.qty;
@@ -290,11 +308,13 @@ export default function App() {
       dealerPrice: product.dealerPrice,
       totalAmount: formValues.sellingPrice * formValues.qty,
       profit,
-      paymentMethod: "COD",
+      paymentMethod: formValues.paymentMethod || "COD",
       status: "PENDING",
       trackingNumber: "",
       carrier: "",
       rejectReason: "",
+      stripeSessionId: "",
+      stripePaymentUrl: "",
       ...formValues
     };
 
@@ -302,13 +322,108 @@ export default function App() {
     setOrders(updatedOrders);
     saveState(null, null, updatedOrders, null);
 
-    showToast("ส่งคำสั่งซื้อสำเร็จ", `ออเดอร์ #${orderId} ถูกส่งไปยังระบบ MyOrder เรียบร้อย`, "success", () => {
-      // Undo order
-      const undoneOrders = orders.filter(o => o.id !== orderId);
-      setOrders(undoneOrders);
-      saveState(null, null, undoneOrders, null);
-      showToast("ยกเลิกออเดอร์สำเร็จ", `ยกเลิกรายการออเดอร์ #${orderId} เรียบร้อย`, "warning");
-    });
+    if (formValues.paymentMethod === 'STRIPE') {
+      try {
+        const response = await fetch('/api/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: formValues.productId,
+            name: product.name,
+            amount: formValues.sellingPrice,
+            qty: formValues.qty,
+            orderId: orderId
+          })
+        });
+        const data = await response.json();
+        if (data.url) {
+          const finalOrders = updatedOrders.map(o => o.id === orderId ? {
+            ...o,
+            stripeSessionId: data.id,
+            stripePaymentUrl: data.url
+          } : o);
+          setOrders(finalOrders);
+          saveState(null, null, finalOrders, null);
+          showToast("สร้างลิงก์จ่ายเงินสำเร็จ", "คัดลอกลิงก์ส่งให้ลูกค้าชำระเงิน หรือกดที่ 'จ่ายเงิน' เพื่อสแกนจ่ายเงิน", "success");
+        } else {
+          throw new Error(data.error || "เกิดข้อผิดพลาดในการสร้างเซสชัน");
+        }
+      } catch (err) {
+        console.error(err);
+        const rolledBack = updatedOrders.filter(o => o.id !== orderId);
+        setOrders(rolledBack);
+        saveState(null, null, rolledBack, null);
+        showToast("ส่งออเดอร์ไม่สำเร็จ", `เกิดข้อผิดพลาดกับระบบ Stripe: ${err.message}`, "error");
+      }
+    } else {
+      showToast("ส่งคำสั่งซื้อสำเร็จ", `ออเดอร์ #${orderId} ถูกส่งไปยังระบบ MyOrder เรียบร้อย`, "success", () => {
+        // Undo order
+        const undoneOrders = orders.filter(o => o.id !== orderId);
+        setOrders(undoneOrders);
+        saveState(null, null, undoneOrders, null);
+        showToast("ยกเลิกออเดอร์สำเร็จ", `ยกเลิกรายการออเดอร์ #${orderId} เรียบร้อย`, "warning");
+      });
+    }
+  };
+
+  const handleCheckPaymentStatus = async (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order || !order.stripeSessionId) return;
+
+    try {
+      showToast("กำลังตรวจสอบ", "กำลังดึงข้อมูลการชำระเงินจาก Stripe...", "warning");
+      const response = await fetch(`/api/check-session-status?session_id=${order.stripeSessionId}`);
+      const data = await response.json();
+      
+      if (data.payment_status === 'paid') {
+        const updatedProducts = products.map(p => p.id === order.productId ? { ...p, stock: Math.max(0, p.stock - order.qty) } : p);
+        const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'CONFIRMED' } : o);
+        
+        setProducts(updatedProducts);
+        setOrders(updatedOrders);
+        saveState(updatedProducts, null, updatedOrders, null);
+        showToast("ชำระเงินสำเร็จ!", `ออเดอร์ #${orderId} ได้รับชำระเงินเรียบร้อยแล้ว แบรนด์กดยืนยันตัดสต็อกให้อัตโนมัติ`, "success");
+      } else {
+        showToast("ยังไม่ได้ชำระเงิน", "ระบบ Stripe ไม่พบสถานะการจ่ายเงินที่สำเร็จของลิงก์นี้", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("ตรวจสอบล้มเหลว", `เกิดข้อผิดพลาด: ${err.message}`, "error");
+    }
+  };
+
+  const handleCheckPaymentStatusAfterRedirect = async (orderId, sessionId) => {
+    try {
+      const response = await fetch(`/api/check-session-status?session_id=${sessionId}`);
+      const data = await response.json();
+      
+      if (data.payment_status === 'paid') {
+        const raw = localStorage.getItem('mymarket_react_state');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const currentOrders = parsed.orders || [];
+          const currentProducts = parsed.products || [];
+
+          const order = currentOrders.find(o => o.id === orderId);
+          if (order && order.status === 'PENDING') {
+            const updatedProducts = currentProducts.map(p => p.id === order.productId ? { ...p, stock: Math.max(0, p.stock - order.qty) } : p);
+            const updatedOrders = currentOrders.map(o => o.id === orderId ? { ...o, status: 'CONFIRMED' } : o);
+
+            setProducts(updatedProducts);
+            setOrders(updatedOrders);
+            localStorage.setItem('mymarket_react_state', JSON.stringify({
+              ...parsed,
+              products: updatedProducts,
+              orders: updatedOrders
+            }));
+            
+            showToast("ยินดีด้วย! ชำระเงินสำเร็จ", `ออเดอร์ #${orderId} ได้รับการชำระเงินเรียบร้อย ระบบได้ยืนยันการจัดส่งออเดอร์แล้ว`, "success");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error auto-verifying payment redirect:", err);
+    }
   };
 
   // --- STATS BADGES HELPER ---
@@ -559,6 +674,7 @@ export default function App() {
                   sellerCatalog={sellerCatalog}
                   activeSellerId={activeSellerId}
                   onCreateOrder={handleCreateOrder}
+                  onCheckPaymentStatus={handleCheckPaymentStatus}
                 />
               )}
             </>
