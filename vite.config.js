@@ -32,7 +32,7 @@ export default defineConfig({
       name: 'stripe-api-middleware',
       configureServer(server) {
         server.middlewares.use(async (req, res, next) => {
-          // Endpoint 1: Create Stripe Checkout Session
+          // Endpoint 1: Create Stripe Checkout Session (using Destination Charges)
           if (req.url.startsWith('/api/create-checkout-session') && req.method === 'POST') {
             try {
               const body = await parseRequestBody(req);
@@ -45,11 +45,6 @@ export default defineConfig({
               }
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-              
-              const sessionOptions = {};
-              if (connectedAccountId) {
-                sessionOptions.stripeAccount = connectedAccountId;
-              }
 
               const session = await stripe.checkout.sessions.create({
                 payment_method_types: ['card'],
@@ -68,7 +63,15 @@ export default defineConfig({
                 mode: 'payment',
                 success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}${connectedAccountId ? `&connected_account_id=${connectedAccountId}` : ''}`,
                 cancel_url: `http://localhost:5173/?payment_cancel=true&order_id=${orderId}`,
-              }, sessionOptions);
+                // Route funds to connected account (Destination Charge)
+                ...(connectedAccountId ? {
+                  payment_intent_data: {
+                    transfer_data: {
+                      destination: connectedAccountId,
+                    },
+                  },
+                } : {}),
+              });
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ url: session.url, id: session.id }));
@@ -85,7 +88,6 @@ export default defineConfig({
             try {
               const url = new URL(req.url, 'http://localhost:5173');
               const sessionId = url.searchParams.get('session_id');
-              const connectedAccountId = url.searchParams.get('connected_account_id');
 
               if (!sessionId) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -100,13 +102,7 @@ export default defineConfig({
               }
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-              
-              const sessionOptions = {};
-              if (connectedAccountId) {
-                sessionOptions.stripeAccount = connectedAccountId;
-              }
-
-              const session = await stripe.checkout.sessions.retrieve(sessionId, sessionOptions);
+              const session = await stripe.checkout.sessions.retrieve(sessionId);
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ 
