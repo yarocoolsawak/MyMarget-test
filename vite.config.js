@@ -118,17 +118,24 @@ export default defineConfig({
                 if (!chargeId) {
                   console.error("Could not execute split payment transfers: latest_charge ID is missing from expanded payment intent.");
                 } else {
+                  // Standard mock conversion rate: 1 USD = 34 THB
+                  // Since the platform is US-based, Stripe settles the THB charge in USD.
+                  // We must transfer in USD to match the source_transaction currency.
+                  
                   // 1. Transfer to Brand
                   if (brandStripeAccountId && brandAmount && parseInt(brandAmount) > 0) {
                     try {
+                      const thbSatang = parseInt(brandAmount);
+                      const usdCents = Math.round(thbSatang / 34); // Convert THB satang to USD cents
+                      
                       const brandTransfer = await stripe.transfers.create({
-                        amount: parseInt(brandAmount),
-                        currency: 'thb',
+                        amount: usdCents,
+                        currency: 'usd',
                         destination: brandStripeAccountId,
                         source_transaction: chargeId,
                         description: `Brand share for order ${orderId}`,
                       });
-                      console.log(`Transferred ${brandAmount} satang to Brand (${brandStripeAccountId}). Transfer ID: ${brandTransfer.id}`);
+                      console.log(`Transferred $${(usdCents / 100).toFixed(2)} USD to Brand (${brandStripeAccountId}). Transfer ID: ${brandTransfer.id}`);
                     } catch (e) {
                       console.error(`Error transferring to Brand (${brandStripeAccountId}):`, e.message);
                     }
@@ -137,14 +144,17 @@ export default defineConfig({
                   // 2. Transfer to Seller
                   if (sellerStripeAccountId && sellerAmount && parseInt(sellerAmount) > 0) {
                     try {
+                      const thbSatang = parseInt(sellerAmount);
+                      const usdCents = Math.round(thbSatang / 34); // Convert THB satang to USD cents
+                      
                       const sellerTransfer = await stripe.transfers.create({
-                        amount: parseInt(sellerAmount),
-                        currency: 'thb',
+                        amount: usdCents,
+                        currency: 'usd',
                         destination: sellerStripeAccountId,
                         source_transaction: chargeId,
                         description: `Seller profit for order ${orderId}`,
                       });
-                      console.log(`Transferred ${sellerAmount} satang to Seller (${sellerStripeAccountId}). Transfer ID: ${sellerTransfer.id}`);
+                      console.log(`Transferred $${(usdCents / 100).toFixed(2)} USD to Seller (${sellerStripeAccountId}). Transfer ID: ${sellerTransfer.id}`);
                     } catch (e) {
                       console.error(`Error transferring to Seller (${sellerStripeAccountId}):`, e.message);
                     }
