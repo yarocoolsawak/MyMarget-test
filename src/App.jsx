@@ -37,10 +37,10 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   
   const [brandStripeConnected, setBrandStripeConnected] = useState(true);
-  const [brandStripeAccountId, setBrandStripeAccountId] = useState('acct_1U0yAtBUXb9XO0CI');
+  const [brandStripeAccountId, setBrandStripeAccountId] = useState('acct_1U0zHSBrPGkr2X5w');
   const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
   const [sellerStripeConnected, setSellerStripeConnected] = useState(true);
-  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('acct_1U0yaMBctGtyhb4T');
+  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('acct_1U0zHVBcWQdyiTVi');
   const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [stripeModalRole, setStripeModalRole] = useState('brand');
@@ -58,10 +58,10 @@ export default function App() {
         setOrders(parsed.orders || DEFAULT_ORDERS);
         setSellerCatalog(parsed.sellerCatalog || DEFAULT_SELLER_CATALOG);
         setBrandStripeConnected(parsed.brandStripeConnected !== undefined ? parsed.brandStripeConnected : true);
-        setBrandStripeAccountId(parsed.brandStripeAccountId || 'acct_1U0yAtBUXb9XO0CI');
+        setBrandStripeAccountId(parsed.brandStripeAccountId || 'acct_1U0zHSBrPGkr2X5w');
         setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || 'acct_1U0e7YPcKKk6xz69');
         setSellerStripeConnected(parsed.sellerStripeConnected !== undefined ? parsed.sellerStripeConnected : true);
-        setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : 'acct_1U0yaMBctGtyhb4T');
+        setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : 'acct_1U0zHVBcWQdyiTVi');
         setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId !== undefined ? parsed.sellerStripeMainAccountId : 'acct_1U0e7YPcKKk6xz69');
         return;
       } catch (e) {
@@ -149,10 +149,10 @@ export default function App() {
       setOrders([...DEFAULT_ORDERS]);
       setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
       setBrandStripeConnected(true);
-      setBrandStripeAccountId('acct_1U0yAtBUXb9XO0CI');
+      setBrandStripeAccountId('acct_1U0zHSBrPGkr2X5w');
       setBrandStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
       setSellerStripeConnected(true);
-      setSellerStripeAccountId('acct_1U0yaMBctGtyhb4T');
+      setSellerStripeAccountId('acct_1U0zHVBcWQdyiTVi');
       setSellerStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
       localStorage.removeItem('mymarket_react_state');
       showToast("รีเซ็ตสำเร็จ", "ข้อมูลจำลองได้ถูกปรับกลับเป็นค่าเริ่มต้นแล้ว", "success");
