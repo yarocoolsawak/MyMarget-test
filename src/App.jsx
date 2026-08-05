@@ -18,6 +18,7 @@ import BrowseCatalog from './components/BrowseCatalog';
 import MyStoreCatalog from './components/MyStoreCatalog';
 import SellerOrders from './components/SellerOrders';
 import StripeConnectModal from './components/StripeConnectModal';
+import FinanceDashboard from './components/FinanceDashboard';
 
 export default function App() {
   // --- STATE SECTIONS ---
@@ -651,6 +652,17 @@ export default function App() {
                   <i className={`fa-solid fa-network-wired text-base ${activeBrandTab === 'sellers' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
                   <span>เครือข่ายตัวแทน</span>
                 </button>
+                <button 
+                  onClick={() => setActiveBrandTab('finance')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeBrandTab === 'finance'
+                      ? 'bg-brand-primary-subtle text-brand-primary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-wallet text-base ${activeBrandTab === 'finance' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
+                  <span>การเงิน (Finance)</span>
+                </button>
               </>
             ) : (
               <>
@@ -705,6 +717,17 @@ export default function App() {
                   <i className={`fa-solid fa-dolly text-base ${activeSellerTab === 'orders' ? 'text-brand-secondary' : 'text-text-caption'}`}></i>
                   <span>ออเดอร์และจัดส่ง</span>
                 </button>
+                <button 
+                  onClick={() => setActiveSellerTab('finance')}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl text-left w-full transition-all ${
+                    activeSellerTab === 'finance'
+                      ? 'bg-brand-secondary-subtle text-brand-secondary font-bold'
+                      : 'text-text-body hover:bg-slate-50'
+                  }`}
+                >
+                  <i className={`fa-solid fa-wallet text-base ${activeSellerTab === 'finance' ? 'text-brand-secondary' : 'text-text-caption'}`}></i>
+                  <span>การเงิน (Finance)</span>
+                </button>
               </>
             )}
           </nav>
@@ -751,6 +774,15 @@ export default function App() {
                   sellers={sellers} 
                   orders={orders} 
                   onOnboardSeller={handleOnboardSeller} 
+                />
+              )}
+              {activeBrandTab === 'finance' && (
+                <FinanceDashboard 
+                  stripeConnected={brandStripeConnected}
+                  stripeAccountId={brandStripeAccountId}
+                  stripeMainAccountId={brandStripeMainAccountId}
+                  role="brand"
+                  onOpenStripeConnect={() => handleOpenStripeConnect('brand')}
                 />
               )}
             </>
@@ -800,6 +832,15 @@ export default function App() {
                   onCreateOrder={handleCreateOrder}
                   onCheckPaymentStatus={handleCheckPaymentStatus}
                   sellerStripeConnected={sellerStripeConnected}
+                />
+              )}
+              {activeSellerTab === 'finance' && (
+                <FinanceDashboard 
+                  stripeConnected={sellerStripeConnected}
+                  stripeAccountId={sellerStripeAccountId}
+                  stripeMainAccountId={sellerStripeMainAccountId}
+                  role="seller"
+                  onOpenStripeConnect={() => handleOpenStripeConnect('seller')}
                 />
               )}
             </>

@@ -306,6 +306,115 @@ export default defineConfig({
             return;
           }
 
+          // Endpoint 5: Retrieve Connected Account Balance
+          if (req.url.startsWith('/api/get-stripe-balance') && req.method === 'GET') {
+            try {
+              const url = new URL(req.url, 'http://localhost:5173');
+              const accountId = url.searchParams.get('account_id');
+              
+              if (!accountId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing account_id parameter' }));
+                return;
+              }
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              const balance = await stripe.balance.retrieve({
+                stripeAccount: accountId,
+              });
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(balance));
+            } catch (err) {
+              console.error("Stripe error retrieving balance:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
+          // Endpoint 6: Retrieve Account details (for bank info)
+          if (req.url.startsWith('/api/get-account-details') && req.method === 'GET') {
+            try {
+              const url = new URL(req.url, 'http://localhost:5173');
+              const accountId = url.searchParams.get('account_id');
+              
+              if (!accountId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing account_id parameter' }));
+                return;
+              }
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              const account = await stripe.accounts.retrieve(accountId);
+              const bankAccount = account.external_accounts?.data?.[0] || null;
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({
+                bankName: bankAccount?.bank_name || "Stripe Test Bank",
+                last4: bankAccount?.last4 || "9991",
+                country: account.country,
+                defaultCurrency: account.default_currency,
+                chargesEnabled: account.charges_enabled,
+                payoutsEnabled: account.payouts_enabled,
+                detailsSubmitted: account.details_submitted
+              }));
+            } catch (err) {
+              console.error("Stripe error retrieving account details:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
+          // Endpoint 7: Create Payout
+          if (req.url.startsWith('/api/create-payout') && req.method === 'POST') {
+            try {
+              const body = await parseRequestBody(req);
+              const { accountId, amount } = body;
+
+              if (!accountId || !amount) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing accountId or amount parameters' }));
+                return;
+              }
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              const payout = await stripe.payouts.create({
+                amount: Math.round(amount),
+                currency: 'usd',
+              }, {
+                stripeAccount: accountId,
+              });
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(payout));
+            } catch (err) {
+              console.error("Stripe error creating payout:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
           // Otherwise, fall through to other middleware
           next();
         });
