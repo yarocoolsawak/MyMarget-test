@@ -325,7 +325,7 @@ export default defineConfig({
               }
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-              const balance = await stripe.balance.retrieve({
+              const balance = await stripe.balance.retrieve({}, {
                 stripeAccount: accountId,
               });
 
