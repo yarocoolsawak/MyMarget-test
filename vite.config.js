@@ -175,20 +175,50 @@ export default defineConfig({
               
               let account;
               try {
-                // Try creating Express account (best UX for platforms)
+                // Create a verified Custom account in Test Mode with transfers capability active immediately
                 account = await stripe.accounts.create({
-                  type: 'express',
+                  type: 'custom',
+                  country: 'US',
+                  business_type: 'individual',
                   business_profile: {
                     name: displayName,
+                    mcc: '5732',
+                    url: 'https://mymarket-test.com',
                   },
                   capabilities: {
                     card_payments: { requested: true },
                     transfers: { requested: true },
                   },
+                  tos_acceptance: {
+                    date: Math.floor(Date.now() / 1000),
+                    ip: '127.0.0.1',
+                  },
+                  individual: {
+                    first_name: role === 'brand' ? 'Brand' : 'Seller',
+                    last_name: 'Partner',
+                    email: 'test@example.com',
+                    dob: { day: 1, month: 1, year: 1990 },
+                    address: {
+                      line1: '123 Stripe Way',
+                      city: 'San Francisco',
+                      state: 'CA',
+                      postal_code: '94111',
+                      country: 'US',
+                    },
+                    phone: '+15555550100',
+                    id_number: '000000000', // mock SSN
+                  },
+                  external_account: {
+                    object: 'bank_account',
+                    country: 'US',
+                    currency: 'usd',
+                    routing_number: '110000000',
+                    account_number: '000999999991', // verified test account
+                  }
                 });
               } catch (e) {
-                console.warn("Express silent creation failed, falling back to Standard Connect:", e.message);
-                // Fallback to Standard account type
+                console.warn("Custom silent creation failed, falling back to basic Standard Connect:", e.message);
+                // Fallback to basic Standard account type
                 account = await stripe.accounts.create({
                   type: 'standard',
                   business_profile: {
