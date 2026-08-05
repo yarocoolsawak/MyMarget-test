@@ -435,7 +435,16 @@ export default defineConfig({
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
               
-              // Transfer $500 USD (50000 cents) from platform balance to connected account available balance
+              // 1. Create a charge on the Platform account using the special tok_bypassPending token
+              // This instantly funds the Platform's Available Balance with $600 USD to cover the Connect transfer
+              await stripe.charges.create({
+                amount: 60000, // $600.00 USD in cents
+                currency: 'usd',
+                source: 'tok_bypassPending',
+                description: 'Funding platform available balance for Connect top-up',
+              });
+
+              // 2. Transfer $500 USD (50000 cents) from platform balance to connected account available balance
               const transfer = await stripe.transfers.create({
                 amount: 50000,
                 currency: 'usd',
