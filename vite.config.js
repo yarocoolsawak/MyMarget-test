@@ -104,41 +104,50 @@ export default defineConfig({
               }
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-              const session = await stripe.checkout.sessions.retrieve(sessionId);
+              const session = await stripe.checkout.sessions.retrieve(sessionId, {
+                expand: ['payment_intent'],
+              });
 
               // Perform transfers if payment succeeded and transfers haven't run yet
               if (session.payment_status === 'paid' && !transferredSessions.has(sessionId)) {
                 const { brandStripeAccountId, sellerStripeAccountId, brandAmount, sellerAmount, orderId } = session.metadata || {};
+                const chargeId = session.payment_intent?.latest_charge;
                 
-                console.log(`Processing split payment for order ${orderId}. Session: ${sessionId}`);
+                console.log(`Processing split payment for order ${orderId}. Session: ${sessionId}, Charge ID: ${chargeId}`);
                 
-                // 1. Transfer to Brand
-                if (brandStripeAccountId && brandAmount && parseInt(brandAmount) > 0) {
-                  try {
-                    const brandTransfer = await stripe.transfers.create({
-                      amount: parseInt(brandAmount),
-                      currency: 'thb',
-                      destination: brandStripeAccountId,
-                      description: `Brand share for order ${orderId}`,
-                    });
-                    console.log(`Transferred ${brandAmount} satang to Brand (${brandStripeAccountId}). Transfer ID: ${brandTransfer.id}`);
-                  } catch (e) {
-                    console.error(`Error transferring to Brand (${brandStripeAccountId}):`, e.message);
+                if (!chargeId) {
+                  console.error("Could not execute split payment transfers: latest_charge ID is missing from expanded payment intent.");
+                } else {
+                  // 1. Transfer to Brand
+                  if (brandStripeAccountId && brandAmount && parseInt(brandAmount) > 0) {
+                    try {
+                      const brandTransfer = await stripe.transfers.create({
+                        amount: parseInt(brandAmount),
+                        currency: 'thb',
+                        destination: brandStripeAccountId,
+                        source_transaction: chargeId,
+                        description: `Brand share for order ${orderId}`,
+                      });
+                      console.log(`Transferred ${brandAmount} satang to Brand (${brandStripeAccountId}). Transfer ID: ${brandTransfer.id}`);
+                    } catch (e) {
+                      console.error(`Error transferring to Brand (${brandStripeAccountId}):`, e.message);
+                    }
                   }
-                }
 
-                // 2. Transfer to Seller
-                if (sellerStripeAccountId && sellerAmount && parseInt(sellerAmount) > 0) {
-                  try {
-                    const sellerTransfer = await stripe.transfers.create({
-                      amount: parseInt(sellerAmount),
-                      currency: 'thb',
-                      destination: sellerStripeAccountId,
-                      description: `Seller profit for order ${orderId}`,
-                    });
-                    console.log(`Transferred ${sellerAmount} satang to Seller (${sellerStripeAccountId}). Transfer ID: ${sellerTransfer.id}`);
-                  } catch (e) {
-                    console.error(`Error transferring to Seller (${sellerStripeAccountId}):`, e.message);
+                  // 2. Transfer to Seller
+                  if (sellerStripeAccountId && sellerAmount && parseInt(sellerAmount) > 0) {
+                    try {
+                      const sellerTransfer = await stripe.transfers.create({
+                        amount: parseInt(sellerAmount),
+                        currency: 'thb',
+                        destination: sellerStripeAccountId,
+                        source_transaction: chargeId,
+                        description: `Seller profit for order ${orderId}`,
+                      });
+                      console.log(`Transferred ${sellerAmount} satang to Seller (${sellerStripeAccountId}). Transfer ID: ${sellerTransfer.id}`);
+                    } catch (e) {
+                      console.error(`Error transferring to Seller (${sellerStripeAccountId}):`, e.message);
+                    }
                   }
                 }
 
