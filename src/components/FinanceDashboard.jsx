@@ -77,10 +77,16 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
       if (payout.error) {
         alert(`ถอนเงินไม่สำเร็จ: ${payout.error}`);
       } else {
+        // Calculate the actual reference Stripe payout fee: 0.25% of amount + $0.25 USD
+        const feeVal = (amountVal * 0.0025) + 0.25;
+        const netVal = Math.max(0, amountVal - feeVal);
+
         // Save to history
         const newRecord = {
           id: payout.id || `po_${Math.random().toString(36).substr(2, 9)}`,
           amount: amountVal,
+          fee: feeVal,
+          net: netVal,
           currency: 'USD',
           status: payout.status || 'paid', // Stripe mock payouts are immediately paid in test mode
           created: new Date().toLocaleString('th-TH'),
@@ -300,7 +306,9 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
                     <th className="p-3 border-b-2 border-slate-100 text-xs">รหัสรายการ (Payout ID)</th>
                     <th className="p-3 border-b-2 border-slate-100 text-xs">วันเวลาที่ถอน</th>
                     <th className="p-3 border-b-2 border-slate-100 text-xs">ส่งเงินไปที่</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">จำนวนเงิน</th>
+                    <th className="p-3 border-b-2 border-slate-100 text-xs">ยอดที่ถอน</th>
+                    <th className="p-3 border-b-2 border-slate-100 text-xs">ค่าธรรมเนียม Stripe</th>
+                    <th className="p-3 border-b-2 border-slate-100 text-xs">ยอดสุทธิที่ได้รับ</th>
                     <th className="p-3 border-b-2 border-slate-100 text-xs">สถานะ Stripe</th>
                   </tr>
                 </thead>
@@ -313,8 +321,14 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
                         <td className="p-3 text-xs text-text-title">
                           <span className="font-semibold">{item.bankName}</span> (•••• {item.last4})
                         </td>
-                        <td className="p-3 font-extrabold text-xs text-text-title">
-                          ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.currency}
+                        <td className="p-3 font-semibold text-xs text-text-body">
+                          ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3 text-xs text-slate-500 font-medium">
+                          ${(item.fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-3 font-extrabold text-xs text-green-600">
+                          ${(item.net || item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.currency}
                         </td>
                         <td className="p-3 text-xs">
                           {item.status === 'paid' ? (
@@ -416,13 +430,18 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
                       <span className="text-text-caption">จำนวนที่สั่งถอน:</span>
                       <span className="font-bold text-text-title">${parseFloat(payoutAmount).toFixed(2)} USD</span>
                     </div>
-                    <div className="flex justify-between text-status-success-text">
-                      <span>ค่าธรรมเนียมการถอน:</span>
-                      <span className="font-bold">ฟรีค่าธรรมเนียม</span>
+                    <div className="flex justify-between text-text-body">
+                      <span>ค่าธรรมเนียมการถอน (Stripe Connect):</span>
+                      <span className="font-bold text-slate-600">
+                        ${((parseFloat(payoutAmount) * 0.0025) + 0.25).toFixed(2)} USD
+                        <span className="block text-[9px] text-text-caption font-normal text-right">(0.25% + $0.25 USD)</span>
+                      </span>
                     </div>
                     <div className="flex justify-between border-t border-slate-200 pt-2.5 font-bold text-sm">
                       <span className="text-text-title">ยอดเงินสุทธิที่จะได้รับ:</span>
-                      <span className="text-green-600">${parseFloat(payoutAmount).toFixed(2)} USD</span>
+                      <span className="text-green-600">
+                        ${Math.max(0, parseFloat(payoutAmount) - ((parseFloat(payoutAmount) * 0.0025) + 0.25)).toFixed(2)} USD
+                      </span>
                     </div>
                     <div className="flex justify-between border-t border-slate-200 pt-2.5 text-[11px]">
                       <span className="text-text-caption">เข้าบัญชีธนาคาร:</span>
