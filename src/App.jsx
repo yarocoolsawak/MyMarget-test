@@ -36,9 +36,9 @@ export default function App() {
   
   const [toasts, setToasts] = useState([]);
   
-  const [brandStripeConnected, setBrandStripeConnected] = useState(false);
-  const [brandStripeAccountId, setBrandStripeAccountId] = useState('');
-  const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('');
+  const [brandStripeConnected, setBrandStripeConnected] = useState(true);
+  const [brandStripeAccountId, setBrandStripeAccountId] = useState('acct_1U0yAtBUXb9XO0CI');
+  const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
   const [sellerStripeConnected, setSellerStripeConnected] = useState(true);
   const [sellerStripeAccountId, setSellerStripeAccountId] = useState('acct_1U0yaMBctGtyhb4T');
   const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
@@ -57,9 +57,9 @@ export default function App() {
         setSellers(parsed.sellers || DEFAULT_SELLERS);
         setOrders(parsed.orders || DEFAULT_ORDERS);
         setSellerCatalog(parsed.sellerCatalog || DEFAULT_SELLER_CATALOG);
-        setBrandStripeConnected(parsed.brandStripeConnected || false);
-        setBrandStripeAccountId(parsed.brandStripeAccountId || '');
-        setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || '');
+        setBrandStripeConnected(parsed.brandStripeConnected !== undefined ? parsed.brandStripeConnected : true);
+        setBrandStripeAccountId(parsed.brandStripeAccountId || 'acct_1U0yAtBUXb9XO0CI');
+        setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || 'acct_1U0e7YPcKKk6xz69');
         setSellerStripeConnected(parsed.sellerStripeConnected !== undefined ? parsed.sellerStripeConnected : true);
         setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : 'acct_1U0yaMBctGtyhb4T');
         setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId !== undefined ? parsed.sellerStripeMainAccountId : 'acct_1U0e7YPcKKk6xz69');
@@ -148,9 +148,9 @@ export default function App() {
       setSellers([...DEFAULT_SELLERS]);
       setOrders([...DEFAULT_ORDERS]);
       setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
-      setBrandStripeConnected(false);
-      setBrandStripeAccountId('');
-      setBrandStripeMainAccountId('');
+      setBrandStripeConnected(true);
+      setBrandStripeAccountId('acct_1U0yAtBUXb9XO0CI');
+      setBrandStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
       setSellerStripeConnected(true);
       setSellerStripeAccountId('acct_1U0yaMBctGtyhb4T');
       setSellerStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
