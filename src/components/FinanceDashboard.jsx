@@ -105,6 +105,32 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
     }
   };
 
+  const handleTopUpTestFunds = async () => {
+    if (!stripeConnected || !stripeAccountId) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/top-up-test-funds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: stripeAccountId
+        })
+      });
+      const data = await res.json();
+      if (data.error) {
+        alert(`เติมเงินทดสอบไม่สำเร็จ: ${data.error}`);
+      } else {
+        alert("เติมเงินทดสอบสำเร็จ! โอน $500.00 USD เข้า Available Balance เรียบร้อย");
+        await fetchStripeFinanceData();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("เกิดข้อผิดพลาดในการเติมเงินทดสอบ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isBrand = role === 'brand';
   const themeColor = isBrand ? 'brand-primary' : 'brand-secondary';
   const themeBg = isBrand ? 'bg-brand-primary-subtle text-brand-primary' : 'bg-brand-secondary-subtle text-brand-secondary';
@@ -153,8 +179,16 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
         </div>
       ) : (
         <>
-          {/* Refresh Button */}
-          <div className="flex justify-end mb-4">
+          {/* Refresh & Top Up Actions */}
+          <div className="flex justify-end items-center gap-4 mb-4">
+            <button 
+              onClick={handleTopUpTestFunds}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold rounded-2xl transition-all shadow-sm disabled:opacity-50"
+            >
+              <i className="fa-solid fa-circle-plus text-xs"></i>
+              <span>เติมเงินทดสอบ $500 (Test Mode)</span>
+            </button>
             <button 
               onClick={fetchStripeFinanceData} 
               disabled={loading}

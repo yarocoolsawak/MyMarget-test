@@ -415,6 +415,44 @@ export default defineConfig({
             return;
           }
 
+          // Endpoint 8: Top up test funds (transfer USD from platform to connected account available balance)
+          if (req.url.startsWith('/api/top-up-test-funds') && req.method === 'POST') {
+            try {
+              const body = await parseRequestBody(req);
+              const { accountId } = body;
+
+              if (!accountId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing accountId parameter' }));
+                return;
+              }
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              
+              // Transfer $500 USD (50000 cents) from platform balance to connected account available balance
+              const transfer = await stripe.transfers.create({
+                amount: 50000,
+                currency: 'usd',
+                destination: accountId,
+                description: 'Test mode available balance top up',
+              });
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify(transfer));
+            } catch (err) {
+              console.error("Stripe error topping up test funds:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
           // Otherwise, fall through to other middleware
           next();
         });
