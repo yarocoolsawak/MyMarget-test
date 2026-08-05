@@ -39,9 +39,9 @@ export default function App() {
   const [brandStripeConnected, setBrandStripeConnected] = useState(false);
   const [brandStripeAccountId, setBrandStripeAccountId] = useState('');
   const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('');
-  const [sellerStripeConnected, setSellerStripeConnected] = useState(false);
-  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('');
-  const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('');
+  const [sellerStripeConnected, setSellerStripeConnected] = useState(true);
+  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('acct_1U0yaMBctGtyhb4T');
+  const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [stripeModalRole, setStripeModalRole] = useState('brand');
   
@@ -60,9 +60,9 @@ export default function App() {
         setBrandStripeConnected(parsed.brandStripeConnected || false);
         setBrandStripeAccountId(parsed.brandStripeAccountId || '');
         setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || '');
-        setSellerStripeConnected(parsed.sellerStripeConnected || false);
-        setSellerStripeAccountId(parsed.sellerStripeAccountId || '');
-        setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId || '');
+        setSellerStripeConnected(parsed.sellerStripeConnected !== undefined ? parsed.sellerStripeConnected : true);
+        setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : 'acct_1U0yaMBctGtyhb4T');
+        setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId !== undefined ? parsed.sellerStripeMainAccountId : 'acct_1U0e7YPcKKk6xz69');
         return;
       } catch (e) {
         console.error("Failed to parse localStorage state", e);
@@ -151,9 +151,9 @@ export default function App() {
       setBrandStripeConnected(false);
       setBrandStripeAccountId('');
       setBrandStripeMainAccountId('');
-      setSellerStripeConnected(false);
-      setSellerStripeAccountId('');
-      setSellerStripeMainAccountId('');
+      setSellerStripeConnected(true);
+      setSellerStripeAccountId('acct_1U0yaMBctGtyhb4T');
+      setSellerStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
       localStorage.removeItem('mymarket_react_state');
       showToast("รีเซ็ตสำเร็จ", "ข้อมูลจำลองได้ถูกปรับกลับเป็นค่าเริ่มต้นแล้ว", "success");
     }
