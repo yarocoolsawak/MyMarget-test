@@ -422,7 +422,9 @@ export default function App() {
 
     if (formValues.paymentMethod === 'STRIPE') {
       try {
-        const connAccId = currentRole === 'seller' ? sellerStripeAccountId : brandStripeAccountId;
+        const brandAmount = product.dealerPrice * formValues.qty;
+        const sellerAmount = (formValues.sellingPrice - product.dealerPrice) * formValues.qty;
+
         const response = await fetch('/api/create-checkout-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -432,7 +434,10 @@ export default function App() {
             amount: formValues.sellingPrice,
             qty: formValues.qty,
             orderId: orderId,
-            connectedAccountId: connAccId
+            sellerStripeAccountId: sellerStripeAccountId,
+            brandStripeAccountId: brandStripeAccountId,
+            brandAmount: brandAmount,
+            sellerAmount: sellerAmount
           })
         });
         const data = await response.json();

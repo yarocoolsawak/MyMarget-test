@@ -31,12 +31,14 @@ export default defineConfig({
     {
       name: 'stripe-api-middleware',
       configureServer(server) {
+        const transferredSessions = new Set();
+
         server.middlewares.use(async (req, res, next) => {
-          // Endpoint 1: Create Stripe Checkout Session (using Destination Charges)
+          // Endpoint 1: Create Stripe Checkout Session (for split payments)
           if (req.url.startsWith('/api/create-checkout-session') && req.method === 'POST') {
             try {
               const body = await parseRequestBody(req);
-              const { productId, name, amount, qty, orderId, connectedAccountId } = body;
+              const { productId, name, amount, qty, orderId, sellerStripeAccountId, brandStripeAccountId, brandAmount, sellerAmount } = body;
               
               if (!process.env.STRIPE_SECRET_KEY) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -61,16 +63,16 @@ export default defineConfig({
                   },
                 ],
                 mode: 'payment',
-                success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}${connectedAccountId ? `&connected_account_id=${connectedAccountId}` : ''}`,
+                success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
                 cancel_url: `http://localhost:5173/?payment_cancel=true&order_id=${orderId}`,
-                // Route funds to connected account (Destination Charge)
-                ...(connectedAccountId ? {
-                  payment_intent_data: {
-                    transfer_data: {
-                      destination: connectedAccountId,
-                    },
-                  },
-                } : {}),
+                // Save split targets and amounts in metadata so they are processed on status check / webhook success
+                metadata: {
+                  orderId: orderId,
+                  brandStripeAccountId: brandStripeAccountId || "",
+                  sellerStripeAccountId: sellerStripeAccountId || "",
+                  brandAmount: brandAmount ? String(Math.round(brandAmount * 100)) : "0", // in Satang
+                  sellerAmount: sellerAmount ? String(Math.round(sellerAmount * 100)) : "0", // in Satang
+                }
               });
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -83,7 +85,7 @@ export default defineConfig({
             return;
           }
 
-          // Endpoint 2: Retrieve Stripe Session Status
+          // Endpoint 2: Retrieve Stripe Session Status & Trigger Split Transfers
           if (req.url.startsWith('/api/check-session-status') && req.method === 'GET') {
             try {
               const url = new URL(req.url, 'http://localhost:5173');
@@ -103,6 +105,45 @@ export default defineConfig({
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
               const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+              // Perform transfers if payment succeeded and transfers haven't run yet
+              if (session.payment_status === 'paid' && !transferredSessions.has(sessionId)) {
+                const { brandStripeAccountId, sellerStripeAccountId, brandAmount, sellerAmount, orderId } = session.metadata || {};
+                
+                console.log(`Processing split payment for order ${orderId}. Session: ${sessionId}`);
+                
+                // 1. Transfer to Brand
+                if (brandStripeAccountId && brandAmount && parseInt(brandAmount) > 0) {
+                  try {
+                    const brandTransfer = await stripe.transfers.create({
+                      amount: parseInt(brandAmount),
+                      currency: 'thb',
+                      destination: brandStripeAccountId,
+                      description: `Brand share for order ${orderId}`,
+                    });
+                    console.log(`Transferred ${brandAmount} satang to Brand (${brandStripeAccountId}). Transfer ID: ${brandTransfer.id}`);
+                  } catch (e) {
+                    console.error(`Error transferring to Brand (${brandStripeAccountId}):`, e.message);
+                  }
+                }
+
+                // 2. Transfer to Seller
+                if (sellerStripeAccountId && sellerAmount && parseInt(sellerAmount) > 0) {
+                  try {
+                    const sellerTransfer = await stripe.transfers.create({
+                      amount: parseInt(sellerAmount),
+                      currency: 'thb',
+                      destination: sellerStripeAccountId,
+                      description: `Seller profit for order ${orderId}`,
+                    });
+                    console.log(`Transferred ${sellerAmount} satang to Seller (${sellerStripeAccountId}). Transfer ID: ${sellerTransfer.id}`);
+                  } catch (e) {
+                    console.error(`Error transferring to Seller (${sellerStripeAccountId}):`, e.message);
+                  }
+                }
+
+                transferredSessions.add(sessionId);
+              }
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ 
