@@ -415,7 +415,7 @@ export default defineConfig({
           if (req.url.startsWith('/api/refund-stripe-order') && req.method === 'POST') {
             try {
               const body = await parseRequestBody(req);
-              const { sessionId } = body;
+              const { sessionId, brandTransferId, sellerTransferId } = body;
 
               if (!sessionId) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -455,20 +455,28 @@ export default defineConfig({
                 charge: chargeId,
               });
 
-              // 3. List and reverse transfers associated with this charge (Separate Charges and Transfers reversal)
-              const transfers = await stripe.transfers.list({
-                source_transaction: chargeId,
-              });
-
+              // 3. Reverse specified transfers (if they were already executed and exist on the order)
               const reversals = [];
-              for (const transfer of transfers.data) {
+
+              if (brandTransferId) {
                 try {
-                  const reversal = await stripe.transfers.createReversal(transfer.id, {
-                    description: `Reversal for refunded session ${sessionId}`,
+                  const reversal = await stripe.transfers.createReversal(brandTransferId, {
+                    description: `Reversal of Brand share for refunded session ${sessionId}`,
                   });
-                  reversals.push({ transferId: transfer.id, reversalId: reversal.id });
+                  reversals.push({ transferId: brandTransferId, reversalId: reversal.id });
                 } catch (revErr) {
-                  console.error(`Failed to reverse transfer ${transfer.id}:`, revErr.message);
+                  console.error(`Failed to reverse Brand transfer ${brandTransferId}:`, revErr.message);
+                }
+              }
+
+              if (sellerTransferId) {
+                try {
+                  const reversal = await stripe.transfers.createReversal(sellerTransferId, {
+                    description: `Reversal of Seller profit for refunded session ${sessionId}`,
+                  });
+                  reversals.push({ transferId: sellerTransferId, reversalId: reversal.id });
+                } catch (revErr) {
+                  console.error(`Failed to reverse Seller transfer ${sellerTransferId}:`, revErr.message);
                 }
               }
 

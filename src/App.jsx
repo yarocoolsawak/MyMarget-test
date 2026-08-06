@@ -408,7 +408,9 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sessionId: order.stripeSessionId
+            sessionId: order.stripeSessionId,
+            brandTransferId: order.brandTransferId || null,
+            sellerTransferId: order.sellerTransferId || null
           })
         });
         const data = await response.json();
@@ -538,6 +540,9 @@ export default function App() {
       }
 
       // Perform Stripe Transfers
+      let brandTransferId = null;
+      let sellerTransferId = null;
+
       if (order.paymentMethod === 'STRIPE' && order.stripeSessionId) {
         try {
           const response = await fetch('/api/process-delayed-transfers', {
@@ -554,6 +559,12 @@ export default function App() {
           });
           const data = await response.json();
           console.log(`Delayed transfers results for #${order.id}:`, data);
+          if (data.success && data.results) {
+            const brandResult = data.results.find(r => r.type === 'brand' && r.status === 'success');
+            const sellerResult = data.results.find(r => r.type === 'seller' && r.status === 'success');
+            if (brandResult) brandTransferId = brandResult.id;
+            if (sellerResult) sellerTransferId = sellerResult.id;
+          }
         } catch (err) {
           console.error(`Failed to transfer for order ${order.id}:`, err);
         }
@@ -562,10 +573,15 @@ export default function App() {
       // Deduct from pending settlement since it's now settled
       currentPending = Math.max(0, Math.round((currentPending - brandShareUsd) * 100) / 100);
 
-      // Update status to SETTLED
+      // Update status to SETTLED and record transfer IDs
       const idx = updatedOrders.findIndex(o => o.id === order.id);
       if (idx !== -1) {
-        updatedOrders[idx] = { ...updatedOrders[idx], status: 'SETTLED' };
+        updatedOrders[idx] = { 
+          ...updatedOrders[idx], 
+          status: 'SETTLED',
+          brandTransferId: brandTransferId,
+          sellerTransferId: sellerTransferId
+        };
       }
     }
 
