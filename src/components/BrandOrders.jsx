@@ -251,40 +251,19 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
                                   </a>
                                 )}
                               </div>
-                              <div className="flex gap-1.5">
-                                <button
-                                  onClick={() => {
-                                    setClaimReplaceOrderId(o.id);
-                                    setNewTrackingNumber("TH" + Math.floor(100000000 + Math.random() * 900000000) + "RE");
-                                  }}
-                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold rounded-3xl transition-colors flex items-center gap-1 shadow-sm"
-                                >
-                                  <i className="fa-solid fa-truck-ramp-box text-[10px]"></i> อนุมัติส่งของใหม่
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setClaimRefundOrderId(o.id);
-                                    setClaimRefundResponsibility('brand');
-                                  }}
-                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold rounded-3xl transition-colors flex items-center gap-1 shadow-sm"
-                                >
-                                  <i className="fa-solid fa-rotate-left text-[10px]"></i> อนุมัติคืนเงิน
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setClaimRejectOrderId(o.id);
-                                    setClaimRejectReason('');
-                                  }}
-                                  className="px-2.5 py-1 border border-slate-300 hover:bg-slate-50 text-text-body text-[11px] font-semibold rounded-3xl transition-colors"
-                                >
-                                  ปฏิเสธ
-                                </button>
-                              </div>
+                              <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl w-fit">
+                                <i className="fa-solid fa-hourglass-half mr-1 text-[10px]"></i> รอฝ่ายเคลม MyOrder ตรวจสอบความถูกต้อง
+                              </span>
                             </div>
                           )}
                           {o.status === "CLAIM_APPROVED_REPLACE" && (
                             <span className="text-xs text-indigo-600 font-medium">
                               ส่งของทดแทนแล้ว ({o.trackingNumber})
+                            </span>
+                          )}
+                          {o.status === "CLAIM_APPROVED_REPAIR" && (
+                            <span className="text-xs text-amber-700 font-semibold flex items-center gap-1">
+                              <i className="fa-solid fa-screwdriver-wrench text-[10px]"></i> ส่งซ่อม ({o.repairTrackingNumber})
                             </span>
                           )}
                           {o.status === "CLAIM_APPROVED_REFUND" && (

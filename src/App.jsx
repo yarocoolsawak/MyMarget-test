@@ -19,6 +19,7 @@ import MyStoreCatalog from './components/MyStoreCatalog';
 import SellerOrders from './components/SellerOrders';
 import StripeConnectModal from './components/StripeConnectModal';
 import FinanceDashboard from './components/FinanceDashboard';
+import ClaimDeptDashboard from './components/ClaimDeptDashboard';
 
 export default function App() {
   // --- STATE SECTIONS ---
@@ -369,7 +370,19 @@ export default function App() {
     showToast("ส่งมอบพัสดุสำเร็จ", `ปิดงานจัดส่งออเดอร์ #${orderId} และนำเงินเข้ายอด Settlement รอโอนหลังผ่านช่วงเคลม (7 วัน) เรียบร้อย`, "success");
   };
 
-  const handleClaimOrder = (orderId, claimDetails) => {
+  const handleCreateClaimLink = (orderId) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_LINK_CREATED',
+      claimLink: `http://localhost:5173/claim?order_id=${orderId}`
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("สร้างลิงก์เคลมสำเร็จ", `สร้างลิงก์เคลมสำหรับออเดอร์ #${orderId} เรียบร้อย คัดลอกและส่งให้ลูกค้าได้ทันที`, "success");
+  };
+
+  const handleSubmitCustomerClaim = (orderId, claimDetails) => {
     const updatedOrders = orders.map(o => o.id === orderId ? {
       ...o,
       status: 'CLAIM_PENDING',
@@ -381,7 +394,7 @@ export default function App() {
 
     setOrders(updatedOrders);
     saveState(null, null, updatedOrders, null);
-    showToast("ยื่นคำร้องเคลมสำเร็จ", `ส่งเรื่องเคลมสำหรับออเดอร์ #${orderId} แล้ว รอแบรนด์ตรวจสอบ`, "success");
+    showToast("ส่งเรื่องเคลมสำเร็จ", `ข้อมูลคำร้องเคลมสำหรับออเดอร์ #${orderId} ถูกส่งไปยังทีมตรวจสอบของ MyOrder แล้ว`, "success");
   };
 
   const handleApproveClaimReplace = (orderId, newTrackingNumber) => {
@@ -395,6 +408,19 @@ export default function App() {
     setOrders(updatedOrders);
     saveState(null, null, updatedOrders, null);
     showToast("อนุมัติเคลมสำเร็จ", `เปลี่ยนสินค้าออเดอร์ #${orderId} และจัดส่งชิ้นใหม่เรียบร้อย`, "success");
+  };
+
+  const handleApproveClaimRepair = (orderId) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_APPROVED_REPAIR',
+      repairTrackingNumber: "TH-REPAIR-" + Math.floor(100000000 + Math.random() * 900000000),
+      repairCarrier: "MyOrder Logistics (Repair Service)"
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("อนุมัติส่งซ่อมสำเร็จ", `ออกใบนำส่งซ่อมสำหรับออเดอร์ #${orderId} เรียบร้อย`, "success");
   };
 
   const handleApproveClaimRefund = async (orderId, responsibility = 'brand') => {
@@ -844,23 +870,33 @@ export default function App() {
           >
             <i className="fa-solid fa-users text-xs"></i> ตัวแทนจำหน่าย (Seller)
           </button>
+          <button 
+            onClick={() => switchRole('claim_dept')}
+            className={`flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-3xl transition-all duration-300 ${
+              currentRole === 'claim_dept' 
+                ? 'bg-amber-500 text-white shadow-button' 
+                : 'text-text-body hover:text-text-title'
+            }`}
+          >
+            <i className="fa-solid fa-clipboard-check text-xs"></i> ฝ่ายเคลม MyOrder (Claim Dept)
+          </button>
         </div>
 
         {/* Profile Info */}
         <div className="flex items-center gap-3">
           <img 
-            src={currentRole === 'brand' ? "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix" : (sellers.find(s => s.id === activeSellerId)?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix")} 
+            src={currentRole === 'brand' ? "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix" : (currentRole === 'claim_dept' ? "https://api.dicebear.com/7.x/adventurer/svg?seed=Claim" : (sellers.find(s => s.id === activeSellerId)?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix"))} 
             alt="Avatar" 
             className="w-10 h-10 rounded-full border border-slate-100 bg-brand-primary-subtle"
           />
           <div className="flex flex-col text-left">
             <span className="font-semibold text-text-title text-sm">
-              {currentRole === 'brand' ? "Brand Admin (คุณกิตติ)" : (sellers.find(s => s.id === activeSellerId)?.name || "Seller")}
+              {currentRole === 'brand' ? "Brand Admin (คุณกิตติ)" : (currentRole === 'claim_dept' ? "เจ้าหน้าที่ฝ่ายเคลม MyOrder" : (sellers.find(s => s.id === activeSellerId)?.name || "Seller"))}
             </span>
             <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-md w-fit ${
-              currentRole === 'brand' ? 'bg-brand-primary' : 'bg-brand-secondary'
+              currentRole === 'brand' ? 'bg-brand-primary' : (currentRole === 'claim_dept' ? 'bg-amber-500' : 'bg-brand-secondary')
             }`}>
-              {currentRole === 'brand' ? "Owner" : (sellers.find(s => s.id === activeSellerId)?.tier || "Standard")}
+              {currentRole === 'brand' ? "Owner" : (currentRole === 'claim_dept' ? "Claim Agent" : (sellers.find(s => s.id === activeSellerId)?.tier || "Standard"))}
             </span>
           </div>
         </div>
@@ -935,6 +971,16 @@ export default function App() {
                 >
                   <i className={`fa-solid fa-wallet text-base ${activeBrandTab === 'finance' ? 'text-brand-primary' : 'text-text-caption'}`}></i>
                   <span>การเงิน (Finance)</span>
+                </button>
+              </>
+            ) : currentRole === 'claim_dept' ? (
+              <>
+                <button 
+                  className="flex items-center gap-3 px-4 py-3 text-sm font-bold rounded-xl text-left w-full bg-amber-50 text-amber-800 border border-amber-100"
+                  disabled
+                >
+                  <i className="fa-solid fa-clipboard-check text-base text-amber-600"></i>
+                  <span>ตรวจสอบงานเคลม</span>
                 </button>
               </>
             ) : (
@@ -1066,6 +1112,16 @@ export default function App() {
                 />
               )}
             </>
+          ) : currentRole === 'claim_dept' ? (
+            <ClaimDeptDashboard 
+              orders={orders}
+              products={products}
+              sellers={sellers}
+              onApproveClaimReplace={handleApproveClaimReplace}
+              onApproveClaimRefund={handleApproveClaimRefund}
+              onApproveClaimRepair={handleApproveClaimRepair}
+              onRejectClaim={handleRejectClaim}
+            />
           ) : (
             <>
                {activeSellerTab === 'dashboard' && (
@@ -1112,7 +1168,8 @@ export default function App() {
                   onCreateOrder={handleCreateOrder}
                   onCheckPaymentStatus={handleCheckPaymentStatus}
                   sellerStripeConnected={sellerStripeConnected}
-                  onClaimOrder={handleClaimOrder}
+                  onCreateClaimLink={handleCreateClaimLink}
+                  onSubmitCustomerClaim={handleSubmitCustomerClaim}
                 />
               )}
               {activeSellerTab === 'finance' && (
