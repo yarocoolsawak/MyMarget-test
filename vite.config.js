@@ -462,6 +462,77 @@ export default defineConfig({
             return;
           }
 
+          // Endpoint 9: Refund Stripe Charge and Reverse Connect Transfers
+          if (req.url.startsWith('/api/refund-stripe-order') && req.method === 'POST') {
+            try {
+              const body = await parseRequestBody(req);
+              const { sessionId } = body;
+
+              if (!sessionId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing sessionId parameter' }));
+                return;
+              }
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY environment variable' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              
+              // 1. Retrieve the checkout session and expand the payment intent to find the latest charge
+              const session = await stripe.checkout.sessions.retrieve(sessionId, {
+                expand: ['payment_intent'],
+              });
+
+              const paymentIntent = session.payment_intent;
+              if (!paymentIntent) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'No payment intent associated with this session' }));
+                return;
+              }
+
+              const chargeId = paymentIntent.latest_charge;
+              if (!chargeId) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'No charge ID associated with this payment intent' }));
+                return;
+              }
+
+              // 2. Create the refund on the platform charge
+              const refund = await stripe.refunds.create({
+                charge: chargeId,
+              });
+
+              // 3. List and reverse transfers associated with this charge (Separate Charges and Transfers reversal)
+              const transfers = await stripe.transfers.list({
+                source_transaction: chargeId,
+              });
+
+              const reversals = [];
+              for (const transfer of transfers.data) {
+                try {
+                  const reversal = await stripe.transfers.createReversal(transfer.id, {
+                    description: `Reversal for refunded session ${sessionId}`,
+                  });
+                  reversals.push({ transferId: transfer.id, reversalId: reversal.id });
+                } catch (revErr) {
+                  console.error(`Failed to reverse transfer ${transfer.id}:`, revErr.message);
+                }
+              }
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ refund, reversals }));
+            } catch (err) {
+              console.error("Stripe refund error:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
           // Otherwise, fall through to other middleware
           next();
         });

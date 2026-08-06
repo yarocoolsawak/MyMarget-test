@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 
-export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus, sellerStripeConnected }) {
+export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus, sellerStripeConnected, onClaimOrder }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [claimOrderId, setClaimOrderId] = useState(null);
+  const [claimType, setClaimType] = useState('');
+  const [claimReason, setClaimReason] = useState('');
+  const [claimEvidence, setClaimEvidence] = useState('');
 
   // Form states
   const [customerName, setCustomerName] = useState('');
@@ -205,6 +209,26 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                             <i className="fa-solid fa-check-double text-[10px]"></i> สำเร็จ (โอนกำไร)
                           </span>
                         )}
+                        {o.status === "CLAIM_PENDING" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 animate-pulse">
+                            <i className="fa-solid fa-circle-notch text-[10px] animate-spin"></i> รอตรวจสอบการเคลม
+                          </span>
+                        )}
+                        {o.status === "CLAIM_APPROVED_REPLACE" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                            <i className="fa-solid fa-circle-check text-[10px]"></i> เคลมสำเร็จ (ส่งสินค้าใหม่)
+                          </span>
+                        )}
+                        {o.status === "CLAIM_APPROVED_REFUND" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">
+                            <i className="fa-solid fa-rotate-left text-[10px]"></i> เคลมสำเร็จ (คืนเงินแล้ว)
+                          </span>
+                        )}
+                        {o.status === "CLAIM_REJECTED" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800" title={o.claimRejectReason}>
+                            <i className="fa-solid fa-circle-xmark text-[10px]"></i> ปฏิเสธคำขอเคลม
+                          </span>
+                        )}
                         {o.status === "REJECTED" && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-status-error-bg text-status-error-text" title={o.rejectReason}>
                             <i className="fa-solid fa-triangle-exclamation text-[10px]"></i> ถูกยกเลิก
@@ -265,9 +289,44 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                           </div>
                         )}
                         {o.status === "DELIVERED" && (
-                          <div>
+                          <div className="flex flex-col gap-1">
                             <div className="font-semibold text-status-success-text">{o.trackingNumber}</div>
-                            <span className="text-[10px] text-text-caption block mt-0.5 font-medium">กำไรโอนเข้ากระเป๋าแล้ว</span>
+                            <span className="text-[10px] text-text-caption block font-medium">กำไรโอนเข้ากระเป๋าแล้ว</span>
+                            <button
+                              onClick={() => {
+                                setClaimOrderId(o.id);
+                                setClaimType('');
+                                setClaimReason('');
+                                setClaimEvidence('https://images.unsplash.com/photo-1594818866585-14e579f48934?q=80&w=300'); // prefilled test image
+                              }}
+                              className="px-2 py-0.5 mt-1 border border-amber-500 text-amber-650 hover:bg-amber-50 text-[10px] font-semibold rounded-md flex items-center justify-center gap-1 transition-all"
+                            >
+                              <i className="fa-solid fa-triangle-exclamation"></i> ยื่นเคลมสินค้า
+                            </button>
+                          </div>
+                        )}
+                        {o.status === "CLAIM_PENDING" && (
+                          <div className="flex flex-col gap-0.5">
+                            <div className="font-semibold text-amber-700">รอตรวจสอบ ({o.claimType === 'WRONG_PRODUCT' ? 'สินค้าผิด' : o.claimType === 'DAMAGED_PRODUCT' ? 'สินค้าชำรุด' : 'อื่นๆ'})</div>
+                            <span className="text-[10px] text-text-caption block truncate max-w-[150px]" title={o.claimReason}>{o.claimReason}</span>
+                          </div>
+                        )}
+                        {o.status === "CLAIM_APPROVED_REPLACE" && (
+                          <div>
+                            <div className="font-semibold text-indigo-600">{o.trackingNumber}</div>
+                            <span className="text-text-caption block mt-0.5">{o.carrier}</span>
+                          </div>
+                        )}
+                        {o.status === "CLAIM_APPROVED_REFUND" && (
+                          <div className="flex flex-col">
+                            <span className="font-bold text-rose-600">คืนเงินเต็มจำนวน</span>
+                            <span className="text-[10px] text-text-caption block mt-0.5 font-medium">ดึงยอดและกำไรคืนแล้ว</span>
+                          </div>
+                        )}
+                        {o.status === "CLAIM_REJECTED" && (
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-slate-600">คำขอถูกปฏิเสธ</span>
+                            <span className="text-[10px] text-status-error-text block mt-0.5 font-medium truncate max-w-[150px]" title={o.claimRejectReason}>เหตุผล: {o.claimRejectReason}</span>
                           </div>
                         )}
                         {o.status === "REJECTED" && (
@@ -468,6 +527,100 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                   }`}
                 >
                   ส่งคำสั่งซื้อเข้าระบบ MyOrder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Claim Request */}
+      {claimOrderId && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/40 backdrop-blur-[4px] flex items-center justify-center z-[1000] animate-fade-in">
+          <div className="bg-white rounded-2xl w-11/12 max-w-[500px] shadow-modal overflow-hidden animate-scale-up">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-amber-50">
+              <h3 className="font-semibold text-amber-800 text-base flex items-center gap-2">
+                <i className="fa-solid fa-triangle-exclamation"></i> ยื่นคำร้องขอเคลมสินค้า #{claimOrderId}
+              </h3>
+              <button 
+                onClick={() => setClaimOrderId(null)} 
+                className="text-text-caption hover:bg-slate-100 hover:text-text-title w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!claimType || !claimReason) return;
+              onClaimOrder(claimOrderId, {
+                claimType,
+                claimReason,
+                claimEvidence
+              });
+              setClaimOrderId(null);
+            }}>
+              <div className="p-6 space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="claim-type-select" className="font-semibold text-text-title text-sm">ประเภทการเคลม <span className="text-status-error-text">*</span></label>
+                  <select 
+                    id="claim-type-select"
+                    value={claimType} 
+                    onChange={e => setClaimType(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg bg-slate-50 text-sm focus:outline-none focus:border-brand-secondary"
+                    required
+                  >
+                    <option value="">-- โปรดเลือกสาเหตุ --</option>
+                    <option value="WRONG_PRODUCT">ส่งสินค้าไม่ตรงกับที่สั่งซื้อ / ผิดรุ่น</option>
+                    <option value="DAMAGED_PRODUCT">สินค้าชำรุดเสียหายระหว่างขนส่ง หรือใช้งานไม่ได้</option>
+                    <option value="OTHER">อื่นๆ</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="claim-reason-textarea" className="font-semibold text-text-title text-sm">รายละเอียดปัญหาและการชำรุด <span className="text-status-error-text">*</span></label>
+                  <textarea 
+                    id="claim-reason-textarea"
+                    value={claimReason}
+                    onChange={e => setClaimReason(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg bg-slate-50 text-sm focus:outline-none focus:border-brand-secondary" 
+                    rows="3"
+                    placeholder="ระบุอาการชำรุดเสียหายอย่างละเอียด..."
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="claim-evidence-input" className="font-semibold text-text-title text-sm">ลิงก์รูปภาพหลักฐานความเสียหาย <span className="text-slate-400 font-normal">(ถ้ามี)</span></label>
+                  <input 
+                    id="claim-evidence-input"
+                    type="text" 
+                    value={claimEvidence}
+                    onChange={e => setClaimEvidence(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg bg-slate-50 text-sm focus:outline-none focus:border-brand-secondary"
+                    placeholder="ใส่ URL รูปภาพ หรือใช้ลิงก์ทดสอบที่มีให้"
+                  />
+                  {claimEvidence && (
+                    <div className="mt-2 border border-slate-100 rounded-xl overflow-hidden max-h-[140px] flex items-center justify-center bg-slate-50">
+                      <img src={claimEvidence} className="h-full max-h-[140px] object-contain" alt="หลักฐานเคลม" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setClaimOrderId(null)}
+                  className="px-4 py-2 border border-slate-200 text-text-body font-semibold rounded-3xl hover:bg-slate-100 text-sm"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-3xl shadow-button text-sm"
+                >
+                  ส่งใบเคลมสินค้า
                 </button>
               </div>
             </form>

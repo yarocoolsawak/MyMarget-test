@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-export default function BrandOrders({ orders, products, sellers, onConfirmOrder, onShipOrder, onDeliverOrder, onRejectOrder }) {
+export default function BrandOrders({ orders, products, sellers, onConfirmOrder, onShipOrder, onDeliverOrder, onRejectOrder, onApproveClaimReplace, onApproveClaimRefund, onRejectClaim }) {
   const [activeTab, setActiveTab] = useState('ALL');
   const [rejectingOrderId, setRejectingOrderId] = useState(null);
   
@@ -8,10 +8,17 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
   const [rejectReason, setRejectReason] = useState('');
   const [rejectReasonText, setRejectReasonText] = useState('');
 
+  // Claim Form states
+  const [claimRejectOrderId, setClaimRejectOrderId] = useState(null);
+  const [claimRejectReason, setClaimRejectReason] = useState('');
+  const [claimReplaceOrderId, setClaimReplaceOrderId] = useState(null);
+  const [newTrackingNumber, setNewTrackingNumber] = useState('');
+
   const pendingOrdersCount = orders.filter(o => o.status === "PENDING").length;
 
   const filteredOrders = orders.filter(o => {
     if (activeTab === 'ALL') return true;
+    if (activeTab === 'CLAIMS') return o.status.startsWith('CLAIM_');
     return o.status === activeTab;
   });
 
@@ -65,6 +72,7 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
           { key: 'CONFIRMED', label: 'ยืนยันแล้ว' },
           { key: 'SHIPPING', label: 'กำลังจัดส่ง' },
           { key: 'DELIVERED', label: 'ส่งสำเร็จ' },
+          { key: 'CLAIMS', label: 'คำขอเคลมสินค้า', badge: orders.filter(o => o.status === 'CLAIM_PENDING').length },
           { key: 'REJECTED', label: 'ปฏิเสธ' }
         ].map(tab => (
           <button
@@ -165,6 +173,26 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
                             <i className="fa-solid fa-circle-check text-[10px]"></i> ส่งสำเร็จ
                           </span>
                         )}
+                        {o.status === "CLAIM_PENDING" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 animate-pulse">
+                            <i className="fa-solid fa-circle-notch text-[10px] animate-spin"></i> ยื่นคำขอเคลม
+                          </span>
+                        )}
+                        {o.status === "CLAIM_APPROVED_REPLACE" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                            <i className="fa-solid fa-circle-check text-[10px]"></i> เคลมสำเร็จ (ส่งของใหม่)
+                          </span>
+                        )}
+                        {o.status === "CLAIM_APPROVED_REFUND" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800">
+                            <i className="fa-solid fa-rotate-left text-[10px]"></i> เคลมสำเร็จ (คืนเงินแล้ว)
+                          </span>
+                        )}
+                        {o.status === "CLAIM_REJECTED" && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800" title={o.claimRejectReason}>
+                            <i className="fa-solid fa-circle-xmark text-[10px]"></i> ปฏิเสธคำขอเคลม
+                          </span>
+                        )}
                         {o.status === "REJECTED" && (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-status-error-bg text-status-error-text" title={o.rejectReason}>
                             <i className="fa-solid fa-circle-xmark text-[10px]"></i> ปฏิเสธแล้ว
@@ -208,6 +236,64 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
                           {o.status === "DELIVERED" && (
                             <span className="text-xs text-status-success-text font-medium">
                               เสร็จสมบูรณ์ ({o.trackingNumber})
+                            </span>
+                          )}
+                          {o.status === "CLAIM_PENDING" && (
+                            <div className="flex flex-col gap-2">
+                              <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs text-text-body space-y-1.5 max-w-[280px]">
+                                <div><strong>ประเภท:</strong> {o.claimType === 'WRONG_PRODUCT' ? 'ส่งสินค้าผิด' : o.claimType === 'DAMAGED_PRODUCT' ? 'สินค้าเสียหาย' : 'อื่นๆ'}</div>
+                                <div className="leading-normal"><strong>เหตุผล:</strong> {o.claimReason}</div>
+                                {o.claimEvidence && (
+                                  <a href={o.claimEvidence} target="_blank" rel="noopener noreferrer" className="block text-brand-primary font-semibold hover:underline mt-1">
+                                    <i className="fa-solid fa-image text-[10px] mr-1"></i> ดูรูปภาพหลักฐาน
+                                  </a>
+                                )}
+                              </div>
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setClaimReplaceOrderId(o.id);
+                                    setNewTrackingNumber("TH" + Math.floor(100000000 + Math.random() * 900000000) + "RE");
+                                  }}
+                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold rounded-3xl transition-colors flex items-center gap-1 shadow-sm"
+                                >
+                                  <i className="fa-solid fa-truck-ramp-box text-[10px]"></i> อนุมัติส่งของใหม่
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(`คุณต้องการอนุมัติคืนเงินเต็มจำนวนสำหรับออเดอร์ #${o.id} หรือไม่?\n(ระบบจะคืนเงินผ่าน Stripe และดึงส่วนแบ่งค่าคอมมิชชันคืน)`)) {
+                                      onApproveClaimRefund(o.id);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold rounded-3xl transition-colors flex items-center gap-1 shadow-sm"
+                                >
+                                  <i className="fa-solid fa-rotate-left text-[10px]"></i> อนุมัติคืนเงิน
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setClaimRejectOrderId(o.id);
+                                    setClaimRejectReason('');
+                                  }}
+                                  className="px-2.5 py-1 border border-slate-300 hover:bg-slate-50 text-text-body text-[11px] font-semibold rounded-3xl transition-colors"
+                                >
+                                  ปฏิเสธ
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {o.status === "CLAIM_APPROVED_REPLACE" && (
+                            <span className="text-xs text-indigo-600 font-medium">
+                              ส่งของทดแทนแล้ว ({o.trackingNumber})
+                            </span>
+                          )}
+                          {o.status === "CLAIM_APPROVED_REFUND" && (
+                            <span className="text-xs text-rose-600 font-bold">
+                              คืนเงินเสร็จสมบูรณ์
+                            </span>
+                          )}
+                          {o.status === "CLAIM_REJECTED" && (
+                            <span className="text-xs text-slate-500 font-medium max-w-[180px] block truncate" title={o.claimRejectReason}>
+                              ปฏิเสธเคลม: {o.claimRejectReason}
                             </span>
                           )}
                           {o.status === "REJECTED" && (
@@ -292,6 +378,119 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
                   className="px-5 py-2 bg-status-error text-white font-semibold rounded-3xl hover:bg-red-600 shadow-button text-sm"
                 >
                   ยืนยันการปฏิเสธ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Claim Rejection Reason */}
+      {claimRejectOrderId && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/40 backdrop-blur-[4px] flex items-center justify-center z-[1000] animate-fade-in">
+          <div className="bg-white rounded-2xl w-11/12 max-w-[420px] shadow-modal overflow-hidden animate-scale-up">
+            <div className="p-5 bg-slate-100 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="font-semibold text-text-title text-base flex items-center gap-2">
+                <i className="fa-solid fa-ban text-slate-600"></i> ปฏิเสธคำร้องขอเคลมสินค้า #{claimRejectOrderId}
+              </h3>
+              <button 
+                onClick={() => setClaimRejectOrderId(null)} 
+                className="text-text-caption hover:bg-slate-200 hover:text-text-title w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (!claimRejectReason) return;
+              onRejectClaim(claimRejectOrderId, claimRejectReason);
+              setClaimRejectOrderId(null);
+            }}>
+              <div className="p-6 space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="claim-reject-reason-textarea" className="font-semibold text-text-title text-sm">เหตุผลในการปฏิเสธคำขอเคลม <span className="text-status-error-text">*</span></label>
+                  <textarea 
+                    id="claim-reject-reason-textarea"
+                    value={claimRejectReason}
+                    onChange={e => setClaimRejectReason(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg bg-slate-50 text-sm focus:outline-none focus:border-brand-primary" 
+                    rows="3"
+                    placeholder="ระบุเหตุผลในการไม่รับเคลมสินค้าออเดอร์นี้..."
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setClaimRejectOrderId(null)}
+                  className="px-4 py-2 border border-slate-200 text-text-body font-semibold rounded-3xl hover:bg-slate-100 text-sm"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white font-semibold rounded-3xl shadow-button text-sm"
+                >
+                  ยืนยันปฏิเสธการเคลม
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Claim Replacement Tracking Number */}
+      {claimReplaceOrderId && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/40 backdrop-blur-[4px] flex items-center justify-center z-[1000] animate-fade-in">
+          <div className="bg-white rounded-2xl w-11/12 max-w-[420px] shadow-modal overflow-hidden animate-scale-up">
+            <div className="p-5 bg-indigo-50 border-b border-indigo-150 flex justify-between items-center">
+              <h3 className="font-semibold text-indigo-800 text-base flex items-center gap-2">
+                <i className="fa-solid fa-truck-ramp-box"></i> อนุมัติส่งสินค้าใหม่ทดแทน #{claimReplaceOrderId}
+              </h3>
+              <button 
+                onClick={() => setClaimReplaceOrderId(null)} 
+                className="text-text-caption hover:bg-indigo-100 hover:text-indigo-800 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              onApproveClaimReplace(claimReplaceOrderId, newTrackingNumber);
+              setClaimReplaceOrderId(null);
+            }}>
+              <div className="p-6 space-y-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="claim-replace-tracking-input" className="font-semibold text-text-title text-sm">เลขพัสดุสำหรับสินค้าชิ้นใหม่ <span className="text-status-error-text">*</span></label>
+                  <input 
+                    id="claim-replace-tracking-input"
+                    type="text" 
+                    value={newTrackingNumber}
+                    onChange={e => setNewTrackingNumber(e.target.value)}
+                    className="w-full px-3.5 py-2 border border-slate-300 rounded-lg bg-slate-50 text-sm focus:outline-none focus:border-brand-primary font-mono font-semibold"
+                    required
+                    placeholder="ใส่เลขพัสดุใหม่ หรือใช้เลขสุ่มที่มีให้"
+                  />
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setClaimReplaceOrderId(null)}
+                  className="px-4 py-2 border border-slate-200 text-text-body font-semibold rounded-3xl hover:bg-slate-100 text-sm"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-3xl shadow-button text-sm"
+                >
+                  ยืนยันส่งสินค้าใหม่
                 </button>
               </div>
             </form>

@@ -339,6 +339,95 @@ export default function App() {
     showToast("ส่งมอบพัสดุสำเร็จ", `ปิดงานจัดส่งออเดอร์ #${orderId} และโอนกำไรเข้าวอลเล็ตตัวแทนเรียบร้อย`, "success");
   };
 
+  const handleClaimOrder = (orderId, claimDetails) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_PENDING',
+      claimType: claimDetails.claimType,
+      claimReason: claimDetails.claimReason,
+      claimEvidence: claimDetails.claimEvidence,
+      claimRejectReason: ""
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("ยื่นคำร้องเคลมสำเร็จ", `ส่งเรื่องเคลมสำหรับออเดอร์ #${orderId} แล้ว รอแบรนด์ตรวจสอบ`, "success");
+  };
+
+  const handleApproveClaimReplace = (orderId, newTrackingNumber) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_APPROVED_REPLACE',
+      trackingNumber: newTrackingNumber || ("TH" + Math.floor(100000000 + Math.random() * 900000000) + "RE"),
+      carrier: "MyOrder Logistics (Replacement)"
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("อนุมัติเคลมสำเร็จ", `เปลี่ยนสินค้าออเดอร์ #${orderId} และจัดส่งชิ้นใหม่เรียบร้อย`, "success");
+  };
+
+  const handleApproveClaimRefund = async (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    try {
+      if (order.paymentMethod === 'STRIPE' && order.stripeSessionId) {
+        showToast("กำลังดำเนินการ", "กำลังทำเรื่องคืนเงินและดึงค่าคอมมิชชันคืนผ่าน Stripe...", "warning");
+        const response = await fetch('/api/refund-stripe-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: order.stripeSessionId
+          })
+        });
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+      }
+
+      // Revert sales and profit stats from Seller
+      const updatedSellers = sellers.map(s => {
+        if (s.id === order.sellerId) {
+          const newSales = Math.max(0, s.totalSales - order.totalAmount);
+          return {
+            ...s,
+            totalSales: newSales,
+            ordersCount: Math.max(0, s.ordersCount - 1),
+            tier: newSales >= 20000 ? "Pro Seller" : "Standard Seller"
+          };
+        }
+        return s;
+      });
+
+      const updatedOrders = orders.map(o => o.id === orderId ? {
+        ...o,
+        status: 'CLAIM_APPROVED_REFUND'
+      } : o);
+
+      setOrders(updatedOrders);
+      setSellers(updatedSellers);
+      saveState(null, updatedSellers, updatedOrders, null);
+      showToast("คืนเงินสำเร็จ", `อนุมัติคำขอคืนเงินออเดอร์ #${orderId} และทำการดึงยอดขายสะสมเรียบร้อย`, "success");
+    } catch (err) {
+      console.error(err);
+      showToast("คืนเงินล้มเหลว", `ไม่สามารถทำรายการคืนเงินผ่าน Stripe: ${err.message}`, "error");
+    }
+  };
+
+  const handleRejectClaim = (orderId, rejectReason) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_REJECTED',
+      claimRejectReason: rejectReason
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("ปฏิเสธคำขอเคลมแล้ว", `ส่งผลการปฏิเสธสำหรับออเดอร์ #${orderId} เรียบร้อย`, "warning");
+  };
+
   const handleOnboardSeller = (name) => {
     const seed = encodeURIComponent(name);
     const updatedSellers = [
@@ -767,6 +856,9 @@ export default function App() {
                   onShipOrder={handleShipOrder}
                   onDeliverOrder={handleDeliverOrder}
                   onRejectOrder={handleRejectOrder}
+                  onApproveClaimReplace={handleApproveClaimReplace}
+                  onApproveClaimRefund={handleApproveClaimRefund}
+                  onRejectClaim={handleRejectClaim}
                 />
               )}
               {activeBrandTab === 'sellers' && (
@@ -832,6 +924,7 @@ export default function App() {
                   onCreateOrder={handleCreateOrder}
                   onCheckPaymentStatus={handleCheckPaymentStatus}
                   sellerStripeConnected={sellerStripeConnected}
+                  onClaimOrder={handleClaimOrder}
                 />
               )}
               {activeSellerTab === 'finance' && (
