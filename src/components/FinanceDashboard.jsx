@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function FinanceDashboard({ stripeConnected, stripeAccountId, stripeMainAccountId, role, onOpenStripeConnect }) {
+export default function FinanceDashboard({ stripeConnected, stripeAccountId, stripeMainAccountId, role, onOpenStripeConnect, brandPendingSettlement = 0, brandOutstandingBalance = 0, brandAccountStatus = 'ACTIVE', onProcessSettlement }) {
   const [balance, setBalance] = useState({ available: 0, pending: 0 });
   const [bankInfo, setBankInfo] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -58,6 +58,11 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
     if (isNaN(amountVal) || amountVal <= 0) return;
     if (amountVal > balance.available) {
       alert("ยอดเงินที่พร้อมถอนไม่เพียงพอ");
+      return;
+    }
+
+    if (role === 'brand' && (brandAccountStatus === 'SETTLEMENT_HOLD' || brandAccountStatus === 'ORDER_HOLD')) {
+      alert("ไม่สามารถทำรายการถอนเงินได้: บัญชีของคุณอยู่ภายใต้สถานะระงับการสั่งจ่ายชั่วคราว (Settlement Hold) เนื่องจากยอดหนี้คงค้างสะสมเกินเกณฑ์กำหนด");
       return;
     }
 
@@ -204,6 +209,65 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
               <span>ดึงข้อมูลล่าสุดจาก Stripe</span>
             </button>
           </div>
+
+          {/* Brand Outstanding Ledger Section */}
+          {role === 'brand' && (
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card mb-8">
+              <div className="flex justify-between items-center mb-4 flex-wrap gap-4">
+                <div>
+                  <h3 className="font-semibold text-text-title text-base flex items-center gap-2">
+                    <i className="fa-solid fa-scale-balanced text-brand-primary"></i> บัญชีหนี้ค้างชำระและการจัดการงานเคลม (Brand Outstanding Ledger)
+                  </h3>
+                  <p className="text-text-caption text-xs mt-0.5">ระบบจะหักยอดเงินคืนลูกค้าและค่าธรรมเนียม Stripe จากยอดเงินโอนสะสมของคุณอัตโนมัติ</p>
+                </div>
+                <div>
+                  <button
+                    onClick={onProcessSettlement}
+                    className="px-4 py-2 bg-brand-primary hover:bg-brand-primary/95 text-white text-xs font-semibold rounded-3xl transition-all shadow-button flex items-center gap-2"
+                  >
+                    <i className="fa-solid fa-forward"></i> เร่งเวลาข้าม 7 วัน (ประมวลผลการโอนเงิน)
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col gap-1">
+                  <span className="text-xs text-text-caption font-semibold">ยอดเตรียมโอนสะสม (Pending Settlement)</span>
+                  <span className="text-xl font-bold text-slate-800">${brandPendingSettlement.toFixed(2)} USD</span>
+                  <span className="text-[10px] text-text-caption leading-relaxed">โฮลด์เงิน 7 วันเพื่อป้องกันการเคลม</span>
+                </div>
+                
+                <div className={`border rounded-xl p-4 flex flex-col gap-1 ${brandOutstandingBalance > 0 ? 'bg-rose-50 border-rose-150' : 'bg-slate-50 border-slate-100'}`}>
+                  <span className="text-xs text-text-caption font-semibold">ยอดหนี้ค้างชำระ (Outstanding Balance)</span>
+                  <span className={`text-xl font-bold ${brandOutstandingBalance > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
+                    ${brandOutstandingBalance.toFixed(2)} USD
+                  </span>
+                  <span className="text-[10px] text-text-caption leading-relaxed">
+                    {brandOutstandingBalance > 0 ? 'ต้องหักออกจากรอบการโอนเงินถัดไป' : 'ไม่มีหนี้ค้างชำระ'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex flex-col justify-between">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-text-caption font-semibold">สถานะบัญชีสั่งจ่าย</span>
+                    {brandAccountStatus === 'ACTIVE' && (
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-green-100 text-green-800 rounded-full">ACTIVE (ปกติ)</span>
+                    )}
+                    {brandAccountStatus === 'SETTLEMENT_HOLD' && (
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded-full">SETTLEMENT HOLD</span>
+                    )}
+                    {brandAccountStatus === 'ORDER_HOLD' && (
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-rose-100 text-rose-800 rounded-full animate-pulse">ORDER HOLD (บล็อกสั่งซื้อ)</span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-text-caption leading-relaxed mt-2">
+                    {brandAccountStatus === 'ACTIVE' && 'บัญชีทำงานปกติ ไม่มีข้อจำกัดในการโอนหรือรับออเดอร์'}
+                    {brandAccountStatus === 'SETTLEMENT_HOLD' && 'มียอดค้างชำระเกิน $100 USD: ระงับการถอนเงิน (Settlement Hold) จนกว่ายอดหนี้จะต่ำกว่าเกณฑ์'}
+                    {brandAccountStatus === 'ORDER_HOLD' && 'มียอดค้างชำระเกิน $200 USD: บล็อกตัวแทนจำหน่ายสร้างออเดอร์ใหม่ให้กับแบรนด์นี้ชั่วคราว'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Balance Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

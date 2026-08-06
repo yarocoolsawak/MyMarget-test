@@ -108,59 +108,8 @@ export default defineConfig({
                 expand: ['payment_intent'],
               });
 
-              // Perform transfers if payment succeeded and transfers haven't run yet
               if (session.payment_status === 'paid' && !transferredSessions.has(sessionId)) {
-                const { brandStripeAccountId, sellerStripeAccountId, brandAmount, sellerAmount, orderId } = session.metadata || {};
-                const chargeId = session.payment_intent?.latest_charge;
-                
-                console.log(`Processing split payment for order ${orderId}. Session: ${sessionId}, Charge ID: ${chargeId}`);
-                
-                if (!chargeId) {
-                  console.error("Could not execute split payment transfers: latest_charge ID is missing from expanded payment intent.");
-                } else {
-                  // Standard mock conversion rate: 1 USD = 34 THB
-                  // Since the platform is US-based, Stripe settles the THB charge in USD.
-                  // We must transfer in USD to match the source_transaction currency.
-                  
-                  // 1. Transfer to Brand
-                  if (brandStripeAccountId && brandAmount && parseInt(brandAmount) > 0) {
-                    try {
-                      const thbSatang = parseInt(brandAmount);
-                      const usdCents = Math.round(thbSatang / 34); // Convert THB satang to USD cents
-                      
-                      const brandTransfer = await stripe.transfers.create({
-                        amount: usdCents,
-                        currency: 'usd',
-                        destination: brandStripeAccountId,
-                        source_transaction: chargeId,
-                        description: `Brand share for order ${orderId}`,
-                      });
-                      console.log(`Transferred $${(usdCents / 100).toFixed(2)} USD to Brand (${brandStripeAccountId}). Transfer ID: ${brandTransfer.id}`);
-                    } catch (e) {
-                      console.error(`Error transferring to Brand (${brandStripeAccountId}):`, e.message);
-                    }
-                  }
-
-                  // 2. Transfer to Seller
-                  if (sellerStripeAccountId && sellerAmount && parseInt(sellerAmount) > 0) {
-                    try {
-                      const thbSatang = parseInt(sellerAmount);
-                      const usdCents = Math.round(thbSatang / 34); // Convert THB satang to USD cents
-                      
-                      const sellerTransfer = await stripe.transfers.create({
-                        amount: usdCents,
-                        currency: 'usd',
-                        destination: sellerStripeAccountId,
-                        source_transaction: chargeId,
-                        description: `Seller profit for order ${orderId}`,
-                      });
-                      console.log(`Transferred $${(usdCents / 100).toFixed(2)} USD to Seller (${sellerStripeAccountId}). Transfer ID: ${sellerTransfer.id}`);
-                    } catch (e) {
-                      console.error(`Error transferring to Seller (${sellerStripeAccountId}):`, e.message);
-                    }
-                  }
-                }
-
+                console.log(`Payment verified for order ${session.metadata?.orderId || "unknown"}. Held on platform for 7-day hold period.`);
                 transferredSessions.add(sessionId);
               }
 
@@ -527,6 +476,78 @@ export default defineConfig({
               res.end(JSON.stringify({ refund, reversals }));
             } catch (err) {
               console.error("Stripe refund error:", err);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message }));
+            }
+            return;
+          }
+
+          // Endpoint 10: Process Delayed Payout Transfers
+          if (req.url.startsWith('/api/process-delayed-transfers') && req.method === 'POST') {
+            try {
+              const body = await parseRequestBody(req);
+              const { brandStripeAccountId, sellerStripeAccountId, brandAmount, sellerAmount, sessionId, orderId } = body;
+
+              if (!process.env.STRIPE_SECRET_KEY) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Missing STRIPE_SECRET_KEY' }));
+                return;
+              }
+
+              const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+              let resolvedChargeId = undefined;
+
+              if (sessionId) {
+                try {
+                  const session = await stripe.checkout.sessions.retrieve(sessionId, {
+                    expand: ['payment_intent'],
+                  });
+                  resolvedChargeId = session.payment_intent?.latest_charge;
+                } catch (sessErr) {
+                  console.error("Error resolving session latest charge:", sessErr.message);
+                }
+              }
+
+              const results = [];
+
+              // 1. Transfer to Brand
+              if (brandStripeAccountId && brandAmount && parseInt(brandAmount) > 0) {
+                try {
+                  const brandTransfer = await stripe.transfers.create({
+                    amount: Math.round(brandAmount), // in USD cents
+                    currency: 'usd',
+                    destination: brandStripeAccountId,
+                    source_transaction: resolvedChargeId || undefined,
+                    description: `Delayed Brand share for order ${orderId}`,
+                  });
+                  results.push({ type: 'brand', status: 'success', id: brandTransfer.id, amount: brandAmount });
+                } catch (e) {
+                  console.error(`Error in delayed transfer to Brand (${brandStripeAccountId}):`, e.message);
+                  results.push({ type: 'brand', status: 'error', error: e.message });
+                }
+              }
+
+              // 2. Transfer to Seller
+              if (sellerStripeAccountId && sellerAmount && parseInt(sellerAmount) > 0) {
+                try {
+                  const sellerTransfer = await stripe.transfers.create({
+                    amount: Math.round(sellerAmount), // in USD cents
+                    currency: 'usd',
+                    destination: sellerStripeAccountId,
+                    source_transaction: chargeId || undefined,
+                    description: `Delayed Seller profit for order ${orderId}`,
+                  });
+                  results.push({ type: 'seller', status: 'success', id: sellerTransfer.id, amount: sellerAmount });
+                } catch (e) {
+                  console.error(`Error in delayed transfer to Seller (${sellerStripeAccountId}):`, e.message);
+                  results.push({ type: 'seller', status: 'error', error: e.message });
+                }
+              }
+
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, results }));
+            } catch (err) {
+              console.error("Stripe delayed transfer error:", err);
               res.writeHead(500, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: err.message }));
             }

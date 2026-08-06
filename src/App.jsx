@@ -34,6 +34,10 @@ export default function App() {
   const [sellers, setSellers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [sellerCatalog, setSellerCatalog] = useState([]);
+
+  const [brandPendingSettlement, setBrandPendingSettlement] = useState(0);
+  const [brandOutstandingBalance, setBrandOutstandingBalance] = useState(0);
+  const [brandAccountStatus, setBrandAccountStatus] = useState('ACTIVE');
   
   const [toasts, setToasts] = useState([]);
   
@@ -64,6 +68,9 @@ export default function App() {
         setSellerStripeConnected(parsed.sellerStripeConnected !== undefined ? parsed.sellerStripeConnected : true);
         setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : 'acct_1U0zHVBcWQdyiTVi');
         setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId !== undefined ? parsed.sellerStripeMainAccountId : 'acct_1U0e7YPcKKk6xz69');
+        setBrandPendingSettlement(parsed.brandPendingSettlement || 0);
+        setBrandOutstandingBalance(parsed.brandOutstandingBalance || 0);
+        setBrandAccountStatus(parsed.brandAccountStatus || 'ACTIVE');
         return;
       } catch (e) {
         console.error("Failed to parse localStorage state", e);
@@ -74,6 +81,9 @@ export default function App() {
     setSellers([...DEFAULT_SELLERS]);
     setOrders([...DEFAULT_ORDERS]);
     setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
+    setBrandPendingSettlement(0);
+    setBrandOutstandingBalance(0);
+    setBrandAccountStatus('ACTIVE');
   }, []);
 
   // Handle Stripe Redirect verification (Payments & Connect Onboarding)
@@ -111,6 +121,10 @@ export default function App() {
   }, []);
 
   const saveState = (updatedProducts, updatedSellers, updatedOrders, updatedCatalog, extraState = {}) => {
+    const nextPendingSettlement = extraState.brandPendingSettlement !== undefined ? extraState.brandPendingSettlement : brandPendingSettlement;
+    const nextOutstandingBalance = extraState.brandOutstandingBalance !== undefined ? extraState.brandOutstandingBalance : brandOutstandingBalance;
+    const nextAccountStatus = extraState.brandAccountStatus !== undefined ? extraState.brandAccountStatus : brandAccountStatus;
+
     localStorage.setItem('mymarket_react_state', JSON.stringify({
       products: updatedProducts || products,
       sellers: updatedSellers || sellers,
@@ -121,7 +135,10 @@ export default function App() {
       brandStripeMainAccountId: extraState.brandStripeMainAccountId !== undefined ? extraState.brandStripeMainAccountId : brandStripeMainAccountId,
       sellerStripeConnected: extraState.sellerStripeConnected !== undefined ? extraState.sellerStripeConnected : sellerStripeConnected,
       sellerStripeAccountId: extraState.sellerStripeAccountId !== undefined ? extraState.sellerStripeAccountId : sellerStripeAccountId,
-      sellerStripeMainAccountId: extraState.sellerStripeMainAccountId !== undefined ? extraState.sellerStripeMainAccountId : sellerStripeMainAccountId
+      sellerStripeMainAccountId: extraState.sellerStripeMainAccountId !== undefined ? extraState.sellerStripeMainAccountId : sellerStripeMainAccountId,
+      brandPendingSettlement: nextPendingSettlement,
+      brandOutstandingBalance: nextOutstandingBalance,
+      brandAccountStatus: nextAccountStatus
     }));
   };
 
@@ -155,6 +172,9 @@ export default function App() {
       setSellerStripeConnected(true);
       setSellerStripeAccountId('acct_1U0zHVBcWQdyiTVi');
       setSellerStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
+      setBrandPendingSettlement(0);
+      setBrandOutstandingBalance(0);
+      setBrandAccountStatus('ACTIVE');
       localStorage.removeItem('mymarket_react_state');
       showToast("รีเซ็ตสำเร็จ", "ข้อมูลจำลองได้ถูกปรับกลับเป็นค่าเริ่มต้นแล้ว", "success");
     }
@@ -317,7 +337,11 @@ export default function App() {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
-    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'DELIVERED' } : o);
+    const updatedOrders = orders.map(o => o.id === orderId ? { 
+      ...o, 
+      status: 'DELIVERED',
+      deliveredAt: new Date().toISOString()
+    } : o);
     
     // Upgrade active seller stats
     const updatedSellers = sellers.map(s => {
@@ -333,10 +357,16 @@ export default function App() {
       return s;
     });
 
+    const brandShareThb = order.dealerPrice * order.qty;
+    const brandShareUsd = Math.round((brandShareThb / 34) * 100) / 100;
+    const nextPending = Math.round((brandPendingSettlement + brandShareUsd) * 100) / 100;
+
     setOrders(updatedOrders);
     setSellers(updatedSellers);
-    saveState(null, updatedSellers, updatedOrders, null);
-    showToast("ส่งมอบพัสดุสำเร็จ", `ปิดงานจัดส่งออเดอร์ #${orderId} และโอนกำไรเข้าวอลเล็ตตัวแทนเรียบร้อย`, "success");
+    setBrandPendingSettlement(nextPending);
+    
+    saveState(null, updatedSellers, updatedOrders, null, { brandPendingSettlement: nextPending });
+    showToast("ส่งมอบพัสดุสำเร็จ", `ปิดงานจัดส่งออเดอร์ #${orderId} และนำเงินเข้ายอด Settlement รอโอนหลังผ่านช่วงเคลม (7 วัน) เรียบร้อย`, "success");
   };
 
   const handleClaimOrder = (orderId, claimDetails) => {
@@ -367,13 +397,13 @@ export default function App() {
     showToast("อนุมัติเคลมสำเร็จ", `เปลี่ยนสินค้าออเดอร์ #${orderId} และจัดส่งชิ้นใหม่เรียบร้อย`, "success");
   };
 
-  const handleApproveClaimRefund = async (orderId) => {
+  const handleApproveClaimRefund = async (orderId, responsibility = 'brand') => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
     try {
       if (order.paymentMethod === 'STRIPE' && order.stripeSessionId) {
-        showToast("กำลังดำเนินการ", "กำลังทำเรื่องคืนเงินและดึงค่าคอมมิชชันคืนผ่าน Stripe...", "warning");
+        showToast("กำลังดำเนินการ", "กำลังทำเรื่องคืนเงินผ่าน Stripe...", "warning");
         const response = await fetch('/api/refund-stripe-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -401,15 +431,58 @@ export default function App() {
         return s;
       });
 
+      // Calculate ledger adjustments
+      let nextPending = brandPendingSettlement;
+      let nextOutstanding = brandOutstandingBalance;
+      let nextStatus = brandAccountStatus;
+
+      if (responsibility === 'brand') {
+        const refundAmountThb = order.totalAmount;
+        const refundAmountUsd = Math.round((refundAmountThb / 34) * 100) / 100;
+        const stripeFeeUsd = Math.round((refundAmountUsd * 0.029 + 0.3) * 100) / 100;
+        const totalDeduction = refundAmountUsd + stripeFeeUsd;
+
+        if (nextPending >= totalDeduction) {
+          nextPending = Math.round((nextPending - totalDeduction) * 100) / 100;
+        } else {
+          const unpaid = Math.round((totalDeduction - nextPending) * 100) / 100;
+          nextPending = 0;
+          nextOutstanding = Math.round((nextOutstanding + unpaid) * 100) / 100;
+        }
+
+        // Determine holds
+        if (nextOutstanding >= 200) {
+          nextStatus = 'ORDER_HOLD';
+        } else if (nextOutstanding >= 100) {
+          nextStatus = 'SETTLEMENT_HOLD';
+        } else {
+          nextStatus = 'ACTIVE';
+        }
+      }
+
       const updatedOrders = orders.map(o => o.id === orderId ? {
         ...o,
-        status: 'CLAIM_APPROVED_REFUND'
+        status: 'CLAIM_APPROVED_REFUND',
+        claimResponsibility: responsibility
       } : o);
 
       setOrders(updatedOrders);
       setSellers(updatedSellers);
-      saveState(null, updatedSellers, updatedOrders, null);
-      showToast("คืนเงินสำเร็จ", `อนุมัติคำขอคืนเงินออเดอร์ #${orderId} และทำการดึงยอดขายสะสมเรียบร้อย`, "success");
+      setBrandPendingSettlement(nextPending);
+      setBrandOutstandingBalance(nextOutstanding);
+      setBrandAccountStatus(nextStatus);
+
+      saveState(null, updatedSellers, updatedOrders, null, {
+        brandPendingSettlement: nextPending,
+        brandOutstandingBalance: nextOutstanding,
+        brandAccountStatus: nextStatus
+      });
+
+      const respText = responsibility === 'brand' 
+        ? `หักจากยอด Settlement แบรนด์แล้ว (หนี้คงค้างสะสม: $${nextOutstanding} USD)`
+        : 'สำรองเงินคืนโดยแพลตฟอร์ม รอเรียกเก็บจากขนส่ง';
+
+      showToast("คืนเงินสำเร็จ", `อนุมัติคำขอคืนเงินออเดอร์ #${orderId} (${respText})`, "success");
     } catch (err) {
       console.error(err);
       showToast("คืนเงินล้มเหลว", `ไม่สามารถทำรายการคืนเงินผ่าน Stripe: ${err.message}`, "error");
@@ -426,6 +499,96 @@ export default function App() {
     setOrders(updatedOrders);
     saveState(null, null, updatedOrders, null);
     showToast("ปฏิเสธคำขอเคลมแล้ว", `ส่งผลการปฏิเสธสำหรับออเดอร์ #${orderId} เรียบร้อย`, "warning");
+  };
+
+  const handleProcessSettlement = async () => {
+    // Find all DELIVERED orders
+    const eligibleOrders = orders.filter(o => o.status === 'DELIVERED');
+    if (eligibleOrders.length === 0) {
+      showToast("ไม่มีออเดอร์พร้อมโอน", "ไม่พบออเดอร์สถานะ 'ส่งสำเร็จ' ที่ยังไม่ได้ประมวลผลการโอนเงิน", "warning");
+      return;
+    }
+
+    showToast("กำลังประมวลผล", "กำลังประมวลผลการคำนวณส่วนแบ่งและหักลบหนี้ค้างชำระ...", "warning");
+    
+    let currentOutstanding = brandOutstandingBalance;
+    let currentPending = brandPendingSettlement;
+    const updatedOrders = [...orders];
+
+    for (const order of eligibleOrders) {
+      const product = products.find(p => p.id === order.productId);
+      if (!product) continue;
+
+      const brandShareThb = product.dealerPrice * order.qty;
+      let brandShareUsd = Math.round((brandShareThb / 34) * 100) / 100;
+      
+      const sellerShareThb = order.profit;
+      const sellerShareUsd = Math.round((sellerShareThb / 34) * 100) / 100;
+
+      // Deduct outstanding debt from Brand Share first
+      let brandTransferUsd = brandShareUsd;
+      if (currentOutstanding > 0) {
+        if (brandTransferUsd >= currentOutstanding) {
+          brandTransferUsd = Math.round((brandTransferUsd - currentOutstanding) * 100) / 100;
+          currentOutstanding = 0;
+        } else {
+          currentOutstanding = Math.round((currentOutstanding - brandTransferUsd) * 100) / 100;
+          brandTransferUsd = 0;
+        }
+      }
+
+      // Perform Stripe Transfers
+      if (order.paymentMethod === 'STRIPE' && order.stripeSessionId) {
+        try {
+          const response = await fetch('/api/process-delayed-transfers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              brandStripeAccountId: brandStripeAccountId,
+              sellerStripeAccountId: sellerStripeAccountId,
+              brandAmount: Math.round(brandTransferUsd * 100), // convert to cents
+              sellerAmount: Math.round(sellerShareUsd * 100), // convert to cents
+              sessionId: order.stripeSessionId,
+              orderId: order.id
+            })
+          });
+          const data = await response.json();
+          console.log(`Delayed transfers results for #${order.id}:`, data);
+        } catch (err) {
+          console.error(`Failed to transfer for order ${order.id}:`, err);
+        }
+      }
+
+      // Deduct from pending settlement since it's now settled
+      currentPending = Math.max(0, Math.round((currentPending - brandShareUsd) * 100) / 100);
+
+      // Update status to SETTLED
+      const idx = updatedOrders.findIndex(o => o.id === order.id);
+      if (idx !== -1) {
+        updatedOrders[idx] = { ...updatedOrders[idx], status: 'SETTLED' };
+      }
+    }
+
+    // Determine brand status after outstanding updates
+    let nextStatus = 'ACTIVE';
+    if (currentOutstanding >= 200) {
+      nextStatus = 'ORDER_HOLD';
+    } else if (currentOutstanding >= 100) {
+      nextStatus = 'SETTLEMENT_HOLD';
+    }
+
+    setOrders(updatedOrders);
+    setBrandPendingSettlement(currentPending);
+    setBrandOutstandingBalance(currentOutstanding);
+    setBrandAccountStatus(nextStatus);
+
+    saveState(null, null, updatedOrders, null, {
+      brandPendingSettlement: currentPending,
+      brandOutstandingBalance: currentOutstanding,
+      brandAccountStatus: nextStatus
+    });
+
+    showToast("ประมวลผลโอนเงินเสร็จสิ้น", "โอนส่วนแบ่งและกำไรเข้ากระเป๋าบัญชีเชื่อมต่อสำเร็จแล้ว", "success");
   };
 
   const handleOnboardSeller = (name) => {
@@ -484,6 +647,11 @@ export default function App() {
   };
 
   const handleCreateOrder = async (formValues) => {
+    if (brandAccountStatus === 'ORDER_HOLD') {
+      showToast("สั่งซื้อไม่ได้", "แบรนด์นี้ถูกระงับรับสั่งซื้อชั่วคราวเนื่องจากมียอดหนี้ค้างชำระสะสมเกินวงเงิน ($200 USD)", "error");
+      return;
+    }
+
     const orderId = "MM-" + Math.floor(1004 + Math.random() * 8999);
     const product = products.find(p => p.id === formValues.productId);
     const profit = (formValues.sellingPrice - product.dealerPrice) * formValues.qty;
@@ -875,6 +1043,10 @@ export default function App() {
                   stripeMainAccountId={brandStripeMainAccountId}
                   role="brand"
                   onOpenStripeConnect={() => handleOpenStripeConnect('brand')}
+                  brandPendingSettlement={brandPendingSettlement}
+                  brandOutstandingBalance={brandOutstandingBalance}
+                  brandAccountStatus={brandAccountStatus}
+                  onProcessSettlement={handleProcessSettlement}
                 />
               )}
             </>

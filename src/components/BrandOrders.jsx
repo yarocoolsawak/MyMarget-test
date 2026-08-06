@@ -13,6 +13,8 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
   const [claimRejectReason, setClaimRejectReason] = useState('');
   const [claimReplaceOrderId, setClaimReplaceOrderId] = useState(null);
   const [newTrackingNumber, setNewTrackingNumber] = useState('');
+  const [claimRefundOrderId, setClaimRefundOrderId] = useState(null);
+  const [claimRefundResponsibility, setClaimRefundResponsibility] = useState('brand');
 
   const pendingOrdersCount = orders.filter(o => o.status === "PENDING").length;
 
@@ -261,9 +263,8 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
                                 </button>
                                 <button
                                   onClick={() => {
-                                    if (confirm(`คุณต้องการอนุมัติคืนเงินเต็มจำนวนสำหรับออเดอร์ #${o.id} หรือไม่?\n(ระบบจะคืนเงินผ่าน Stripe และดึงส่วนแบ่งค่าคอมมิชชันคืน)`)) {
-                                      onApproveClaimRefund(o.id);
-                                    }
+                                    setClaimRefundOrderId(o.id);
+                                    setClaimRefundResponsibility('brand');
                                   }}
                                   className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-semibold rounded-3xl transition-colors flex items-center gap-1 shadow-sm"
                                 >
@@ -491,6 +492,89 @@ export default function BrandOrders({ orders, products, sellers, onConfirmOrder,
                   className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-3xl shadow-button text-sm"
                 >
                   ยืนยันส่งสินค้าใหม่
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Claim Refund Responsibility Selection */}
+      {claimRefundOrderId && (
+        <div className="fixed inset-0 w-full h-full bg-slate-900/40 backdrop-blur-[4px] flex items-center justify-center z-[1000] animate-fade-in">
+          <div className="bg-white rounded-2xl w-11/12 max-w-[450px] shadow-modal overflow-hidden animate-scale-up">
+            <div className="p-5 bg-rose-50 border-b border-rose-150 flex justify-between items-center">
+              <h3 className="font-semibold text-rose-800 text-base flex items-center gap-2">
+                <i className="fa-solid fa-rotate-left"></i> เลือกผู้รับผิดชอบงานเคลม #{claimRefundOrderId}
+              </h3>
+              <button 
+                onClick={() => setClaimRefundOrderId(null)} 
+                className="text-text-caption hover:bg-rose-100 hover:text-rose-800 w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              onApproveClaimRefund(claimRefundOrderId, claimRefundResponsibility);
+              setClaimRefundOrderId(null);
+            }}>
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-text-body leading-relaxed">
+                  กรุณาตรวจสอบและเลือกฝ่ายที่ต้องรับผิดชอบค่าคืนเงินสำหรับลูกค้าคนนี้ ระบบจะทำการคืนเงินผ่าน Stripe โดยอัตโนมัติ
+                </p>
+
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                    <input 
+                      type="radio" 
+                      name="responsibility" 
+                      value="brand"
+                      checked={claimRefundResponsibility === 'brand'}
+                      onChange={() => setClaimRefundResponsibility('brand')}
+                      className="mt-1 accent-rose-600"
+                    />
+                    <div>
+                      <span className="font-bold text-sm text-text-title block">แบรนด์เป็นผู้รับผิดชอบ (Brand responsible)</span>
+                      <span className="text-[11px] text-text-caption mt-0.5 block leading-normal">
+                        ยอดคืนเงิน + ค่าธรรมเนียม Stripe จะหักออกจากยอด Settlement ของแบรนด์ทันที (หากยอดไม่พอกลายเป็นหนี้ค้างชำระสะสม)
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer transition-colors">
+                    <input 
+                      type="radio" 
+                      name="responsibility" 
+                      value="carrier"
+                      checked={claimRefundResponsibility === 'carrier'}
+                      onChange={() => setClaimRefundResponsibility('carrier')}
+                      className="mt-1 accent-rose-600"
+                    />
+                    <div>
+                      <span className="font-bold text-sm text-text-title block">บริษัทขนส่งรับผิดชอบ (Carrier responsible)</span>
+                      <span className="text-[11px] text-text-caption mt-0.5 block leading-normal">
+                        แพลตฟอร์ม (MyMarket) สำรองเงินคืนลูกค้าทันที และส่งเรื่องเคลมสินค้ากับระบบขนส่ง MyOrder เพื่อเรียกคืนค่าชดเชยภายหลัง
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setClaimRefundOrderId(null)}
+                  className="px-4 py-2 border border-slate-200 text-text-body font-semibold rounded-3xl hover:bg-slate-100 text-sm"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-3xl shadow-button text-sm"
+                >
+                  ยืนยันการอนุมัติคืนเงิน
                 </button>
               </div>
             </form>
