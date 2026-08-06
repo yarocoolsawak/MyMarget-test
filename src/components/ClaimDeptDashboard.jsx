@@ -7,7 +7,8 @@ export default function ClaimDeptDashboard({
   onApproveClaimReplace, 
   onApproveClaimRefund, 
   onApproveClaimRepair, 
-  onRejectClaim 
+  onRejectClaim,
+  onProposeBrandRefund
 }) {
   const [activeFilter, setActiveFilter] = useState('PENDING'); // PENDING, APPROVED, REJECTED, ALL
   const [selectedClaimOrder, setSelectedClaimOrder] = useState(null);
@@ -23,6 +24,7 @@ export default function ClaimDeptDashboard({
   // Filter claim cases
   const claimOrders = orders.filter(o => 
     o.status === 'CLAIM_PENDING' || 
+    o.status === 'CLAIM_BRAND_APPROVAL_PENDING' || 
     o.status === 'CLAIM_APPROVED_REFUND' || 
     o.status === 'CLAIM_APPROVED_REPLACE' || 
     o.status === 'CLAIM_APPROVED_REPAIR' || 
@@ -30,7 +32,9 @@ export default function ClaimDeptDashboard({
   );
 
   const filteredClaims = claimOrders.filter(o => {
-    if (activeFilter === 'PENDING') return o.status === 'CLAIM_PENDING';
+    if (activeFilter === 'PENDING') {
+      return o.status === 'CLAIM_PENDING' || o.status === 'CLAIM_BRAND_APPROVAL_PENDING';
+    }
     if (activeFilter === 'APPROVED') {
       return o.status === 'CLAIM_APPROVED_REFUND' || 
              o.status === 'CLAIM_APPROVED_REPLACE' || 
@@ -44,6 +48,8 @@ export default function ClaimDeptDashboard({
     switch (status) {
       case 'CLAIM_PENDING':
         return <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-full animate-pulse">รอตรวจสอบ</span>;
+      case 'CLAIM_BRAND_APPROVAL_PENDING':
+        return <span className="px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-250 text-[10px] font-bold rounded-full animate-pulse">รอแบรนด์อนุมัติชดเชย</span>;
       case 'CLAIM_APPROVED_REFUND':
         return <span className="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-150 text-[10px] font-bold rounded-full">อนุมัติ (คืนเงิน)</span>;
       case 'CLAIM_APPROVED_REPLACE':
@@ -230,6 +236,12 @@ export default function ClaimDeptDashboard({
                       <i className="fa-solid fa-rotate-left mr-1"></i> คืนเงินเข้าบัญชีลูกค้าสำเร็จแล้ว
                     </div>
                   )}
+
+                  {claim.status === 'CLAIM_BRAND_APPROVAL_PENDING' && (
+                    <div className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 p-2 rounded-xl">
+                      <i className="fa-solid fa-hourglass-half mr-1"></i> เสนอให้แบรนด์รับผิดชอบค่าคืนเงินชดเชยแล้ว รอแบรนด์กดยอมรับความรับผิดชอบ
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -256,7 +268,11 @@ export default function ClaimDeptDashboard({
             <form onSubmit={(e) => {
               e.preventDefault();
               if (resolutionType === 'REFUND') {
-                onApproveClaimRefund(selectedClaimOrder.id, refundResponsibility);
+                if (refundResponsibility === 'brand') {
+                  onProposeBrandRefund(selectedClaimOrder.id);
+                } else {
+                  onApproveClaimRefund(selectedClaimOrder.id, 'carrier');
+                }
               } else if (resolutionType === 'REPLACE') {
                 onApproveClaimReplace(selectedClaimOrder.id, replacementTracking);
               } else if (resolutionType === 'REPAIR') {

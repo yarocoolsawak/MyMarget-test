@@ -423,6 +423,29 @@ export default function App() {
     showToast("อนุมัติส่งซ่อมสำเร็จ", `ออกใบนำส่งซ่อมสำหรับออเดอร์ #${orderId} เรียบร้อย`, "success");
   };
 
+  const handleProposeBrandRefund = (orderId) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_BRAND_APPROVAL_PENDING'
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("ส่งเรื่องให้แบรนด์พิจารณา", `ส่งคำร้องเคลมสำหรับออเดอร์ #${orderId} ให้แบรนด์อนุมัติความรับผิดชอบเรียบร้อย`, "success");
+  };
+
+  const handleDisputeClaim = (orderId, disputeReason) => {
+    const updatedOrders = orders.map(o => o.id === orderId ? {
+      ...o,
+      status: 'CLAIM_PENDING',
+      claimReason: `${o.claimReason || ''} (แบรนด์คัดค้าน: ${disputeReason})`
+    } : o);
+
+    setOrders(updatedOrders);
+    saveState(null, null, updatedOrders, null);
+    showToast("ส่งเรื่องโต้แย้งสำเร็จ", `ส่งเรื่องโต้แย้งสำหรับออเดอร์ #${orderId} กลับไปยังฝ่ายเคลม MyOrder แล้ว`, "warning");
+  };
+
   const handleApproveClaimRefund = async (orderId, responsibility = 'brand') => {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
@@ -1089,6 +1112,7 @@ export default function App() {
                   onApproveClaimReplace={handleApproveClaimReplace}
                   onApproveClaimRefund={handleApproveClaimRefund}
                   onRejectClaim={handleRejectClaim}
+                  onDisputeClaim={handleDisputeClaim}
                 />
               )}
               {activeBrandTab === 'sellers' && (
@@ -1121,6 +1145,7 @@ export default function App() {
               onApproveClaimRefund={handleApproveClaimRefund}
               onApproveClaimRepair={handleApproveClaimRepair}
               onRejectClaim={handleRejectClaim}
+              onProposeBrandRefund={handleProposeBrandRefund}
             />
           ) : (
             <>
