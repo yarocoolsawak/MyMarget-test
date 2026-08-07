@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 
-export default function FinanceDashboard({ stripeConnected, stripeAccountId, stripeMainAccountId, role, onOpenStripeConnect, brandPendingSettlement = 0, brandOutstandingBalance = 0, brandAccountStatus = 'ACTIVE', onProcessSettlement }) {
+export default function FinanceDashboard({ stripeConnected, stripeAccountId, stripeMainAccountId, role, onOpenStripeConnect, brandPendingSettlement = 0, brandOutstandingBalance = 0, brandAccountStatus = 'ACTIVE', onProcessSettlement, addTransactionRecord }) {
   const [balance, setBalance] = useState({ available: 0, pending: 0 });
   const [bankInfo, setBankInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState('');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawHistory, setWithdrawHistory] = useState([]);
+  const [transactionHistory, setTransactionHistory] = useState([]);
+  const [historyTab, setHistoryTab] = useState('transactions'); // 'transactions' or 'payouts'
   const [payoutLoading, setPayoutLoading] = useState(false);
 
   // Load withdrawal history from localStorage
@@ -18,6 +20,20 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
       } catch (e) {
         console.error("Failed to parse payout history", e);
       }
+    }
+  }, [stripeAccountId]);
+
+  // Load transaction history from localStorage
+  useEffect(() => {
+    const savedTx = localStorage.getItem(`mymarket_transactions_${stripeAccountId}`);
+    if (savedTx) {
+      try {
+        setTransactionHistory(JSON.parse(savedTx));
+      } catch (e) {
+        console.error("Failed to parse transaction history", e);
+      }
+    } else {
+      setTransactionHistory([]);
     }
   }, [stripeAccountId]);
 
@@ -101,6 +117,14 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
         const updatedHistory = [newRecord, ...withdrawHistory];
         setWithdrawHistory(updatedHistory);
         localStorage.setItem(`mymarket_payouts_${stripeAccountId}`, JSON.stringify(updatedHistory));
+        if (addTransactionRecord) {
+          addTransactionRecord(stripeAccountId, 'payout', -amountVal, `ถอนเงินโอนเข้าบัญชีธนาคารปลายทาง (หักค่าธรรมเนียมถอนเงิน: $${feeVal.toFixed(2)} USD)`);
+        }
+        // Refresh local transaction state
+        const savedTx = localStorage.getItem(`mymarket_transactions_${stripeAccountId}`);
+        if (savedTx) {
+          try { setTransactionHistory(JSON.parse(savedTx)); } catch (e) {}
+        }
         
         // Refresh balance
         await fetchStripeFinanceData();
@@ -387,69 +411,153 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
             </div>
           </div>
 
-          {/* Withdrawal History Table */}
+          {/* Transaction Ledger & Payout History Tabbed Section */}
           <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card">
-            <div className="border-b border-slate-100 pb-4 mb-4">
-              <h3 className="text-base font-semibold text-text-title">ประวัติการสั่งถอนเงินออกจาก Stripe</h3>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3 mb-4 flex-wrap gap-2">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setHistoryTab('transactions')}
+                  className={`px-4 py-2 text-sm font-semibold rounded-3xl transition-all ${
+                    historyTab === 'transactions'
+                      ? themeBg
+                      : 'text-text-caption hover:bg-slate-50'
+                  }`}
+                >
+                  <i className="fa-solid fa-list-check mr-1.5"></i> รายการเดินบัญชี (Transaction Ledger)
+                </button>
+                <button
+                  onClick={() => setHistoryTab('payouts')}
+                  className={`px-4 py-2 text-sm font-semibold rounded-3xl transition-all ${
+                    historyTab === 'payouts'
+                      ? themeBg
+                      : 'text-text-caption hover:bg-slate-50'
+                  }`}
+                >
+                  <i className="fa-solid fa-money-bill-transfer mr-1.5"></i> ประวัติการถอนเงิน (Payouts)
+                </button>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-text-title font-semibold">
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">รหัสรายการ (Payout ID)</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">วันเวลาที่ถอน</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">ส่งเงินไปที่</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">ยอดที่ถอน</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">ค่าธรรมเนียม Stripe</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">ยอดสุทธิที่ได้รับ</th>
-                    <th className="p-3 border-b-2 border-slate-100 text-xs">สถานะ Stripe</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {withdrawHistory.length > 0 ? (
-                    withdrawHistory.map((item, index) => (
-                      <tr key={index} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="p-3 font-mono text-xs text-text-caption">{item.id}</td>
-                        <td className="p-3 text-xs text-text-body">{item.created}</td>
-                        <td className="p-3 text-xs text-text-title">
-                          <span className="font-semibold">{item.bankName}</span> (•••• {item.last4})
-                        </td>
-                        <td className="p-3 font-semibold text-xs text-text-body">
-                          ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="p-3 text-xs text-slate-500 font-medium">
-                          ${(item.fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </td>
-                        <td className="p-3 font-extrabold text-xs text-green-600">
-                          ${(item.net || item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.currency}
-                        </td>
-                        <td className="p-3 text-xs">
-                          {item.status === 'paid' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-status-success-bg text-status-success-text">
-                              <i className="fa-solid fa-circle-check text-[10px]"></i> สำเร็จ (Paid)
-                            </span>
-                          ) : item.status === 'failed' ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-status-error-bg text-status-error-text">
-                              <i className="fa-solid fa-circle-xmark text-[10px]"></i> ล้มเหลว (Failed)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-status-warning-bg text-status-warning-text animate-pulse">
-                              <i className="fa-solid fa-circle-notch text-[10px] animate-spin"></i> กำลังดำเนินการ (In transit)
-                            </span>
-                          )}
+
+            {historyTab === 'transactions' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm font-sans">
+                  <thead>
+                    <tr className="bg-slate-50 text-text-title font-semibold">
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">วันเวลา (Timestamp)</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">ประเภท (Type)</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">รายละเอียดรายการ</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs text-right">จำนวนเงิน (Amount)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {transactionHistory.length > 0 ? (
+                      transactionHistory.map((item, index) => {
+                        let badgeStyle = '';
+                        let typeText = '';
+                        let isPositive = item.amount > 0;
+                        
+                        if (item.type === 'sale') {
+                          badgeStyle = 'bg-green-50 text-green-700';
+                          typeText = 'รายรับยอดขาย';
+                        } else if (item.type === 'stripe_fee') {
+                          badgeStyle = 'bg-slate-50 text-slate-600';
+                          typeText = 'ค่าธรรมเนียม Stripe';
+                        } else if (item.type === 'refund') {
+                          badgeStyle = 'bg-rose-50 text-rose-700';
+                          typeText = 'คืนเงินลูกค้า';
+                        } else if (item.type === 'refund_fee') {
+                          badgeStyle = 'bg-amber-50 text-amber-700';
+                          typeText = 'ค่าธรรมเนียมเคลม';
+                        } else if (item.type === 'payout') {
+                          badgeStyle = 'bg-blue-50 text-blue-700';
+                          typeText = 'การถอนเงิน';
+                        }
+
+                        return (
+                          <tr key={item.id || index} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-3 text-xs text-text-caption">{item.created}</td>
+                            <td className="p-3 text-xs">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${badgeStyle}`}>
+                                {typeText}
+                              </span>
+                            </td>
+                            <td className="p-3 text-xs text-text-title font-medium">{item.description}</td>
+                            <td className={`p-3 text-xs font-extrabold text-right ${isPositive ? 'text-green-600' : 'text-rose-600'}`}>
+                              {isPositive ? '+' : ''}${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="p-8 text-center text-xs text-text-caption font-sans">
+                          ยังไม่มีรายการเดินบัญชีในระบบ
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="5" className="p-8 text-center text-xs text-text-caption">
-                        ยังไม่มีประวัติการส่งคำสั่งจ่ายเงิน (Payout) สำหรับบัญชีนี้
-                      </td>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm font-sans">
+                  <thead>
+                    <tr className="bg-slate-50 text-text-title font-semibold">
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">รหัสรายการ (Payout ID)</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">วันเวลาที่ถอน</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">ส่งเงินไปที่</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">ยอดที่ถอน</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">ค่าธรรมเนียม Stripe</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">ยอดสุทธิที่ได้รับ</th>
+                      <th className="p-3 border-b-2 border-slate-100 text-xs">สถานะ Stripe</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {withdrawHistory.length > 0 ? (
+                      withdrawHistory.map((item, index) => (
+                        <tr key={index} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-3 font-mono text-xs text-text-caption">{item.id}</td>
+                          <td className="p-3 text-xs text-text-body">{item.created}</td>
+                          <td className="p-3 text-xs text-text-title">
+                            <span className="font-semibold">{item.bankName}</span> (•••• {item.last4})
+                          </td>
+                          <td className="p-3 font-semibold text-xs text-text-body">
+                            ${item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3 text-xs text-slate-500 font-medium">
+                            ${(item.fee || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                          <td className="p-3 font-extrabold text-xs text-green-600">
+                            ${(item.net || item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {item.currency}
+                          </td>
+                          <td className="p-3 text-xs">
+                            {item.status === 'paid' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-status-success-bg text-status-success-text">
+                                <i className="fa-solid fa-circle-check text-[10px]"></i> สำเร็จ (Paid)
+                              </span>
+                            ) : item.status === 'failed' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-status-error-bg text-status-error-text">
+                                <i className="fa-solid fa-circle-xmark text-[10px]"></i> ล้มเหลว (Failed)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold bg-status-warning-bg text-status-warning-text animate-pulse">
+                                <i className="fa-solid fa-circle-notch text-[10px] animate-spin"></i> กำลังดำเนินการ (In transit)
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="7" className="p-8 text-center text-xs text-text-caption font-sans">
+                          ยังไม่มีประวัติการส่งคำสั่งจ่ายเงิน (Payout) สำหรับบัญชีนี้
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}
