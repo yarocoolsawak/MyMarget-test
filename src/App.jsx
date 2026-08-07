@@ -229,9 +229,21 @@ export default function App() {
     }
   };
 
-  const handleOpenStripeConnect = (role) => {
-    setStripeModalRole(role);
-    setStripeModalOpen(true);
+  const handleOpenStripeConnect = async (role) => {
+    try {
+      showToast("กำลังสร้างลิงก์เชื่อมต่อ", "ระบบกำลังนำทางคุณไปยังหน้ายืนยันตัวตน (KYC) บน Stripe...", "warning");
+      const res = await fetch(`/api/create-connect-account?role=${role}`);
+      const data = await res.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error(err);
+      showToast("เกิดข้อผิดพลาด", `ไม่สามารถเริ่มการเชื่อมต่อกับ Stripe ได้: ${err.message}`, "error");
+    }
   };
 
   // --- STATE ACTIONS ---
