@@ -210,6 +210,29 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
             </button>
           </div>
 
+          {/* KYC Onboarding Warning Banner */}
+          {bankInfo && (!bankInfo.payoutsEnabled || !bankInfo.detailsSubmitted) && (
+            <div className="bg-rose-50 border border-rose-150 rounded-2xl p-5 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-in text-left">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-lg shrink-0 mt-0.5">
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                  <h4 className="font-bold text-rose-800 text-sm">การเชื่อมต่อบัญชี Stripe ยังไม่สมบูรณ์ (KYC Required)</h4>
+                  <p className="text-xs text-rose-700 mt-1 leading-normal font-sans">
+                    บัญชีของคุณยังติดข้อจำกัดในการโอนเงินออกชั่วคราว เนื่องจากยังไม่ได้ยืนยันตัวตนหรือส่งเอกสารที่กำหนดให้ครบถ้วนกับทาง Stripe
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onOpenStripeConnect}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-3xl shadow-sm transition-all whitespace-nowrap shrink-0 flex items-center gap-1.5"
+              >
+                <i className="fa-solid fa-shield-halved"></i> ดำเนินการยืนยันตัวตนต่อบน Stripe
+              </button>
+            </div>
+          )}
+
           {/* Brand Outstanding Ledger Section */}
           {role === 'brand' && (
             <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card mb-8">
@@ -287,7 +310,13 @@ export default function FinanceDashboard({ stripeConnected, stripeAccountId, str
                 <span className="block text-xs text-text-caption mt-1">ประมาณ {(balance.available * 34).toLocaleString(undefined, { maximumFractionDigits: 0 })} THB</span>
               </div>
               <button 
-                onClick={() => setShowWithdrawModal(true)}
+                onClick={() => {
+                  if (bankInfo && !bankInfo.payoutsEnabled) {
+                    alert("ไม่สามารถถอนเงินได้: บัญชีของคุณถูกจำกัดสิทธิ์ชั่วคราว กรุณาทำการยืนยันตัวตน (KYC) บน Stripe ให้เสร็จสิ้นก่อน");
+                    return;
+                  }
+                  setShowWithdrawModal(true);
+                }}
                 disabled={balance.available <= 0}
                 className={`w-full mt-5 py-2.5 rounded-xl font-semibold text-xs text-center transition-all ${
                   balance.available > 0 
