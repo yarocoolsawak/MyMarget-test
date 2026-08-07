@@ -42,12 +42,12 @@ export default function App() {
   
   const [toasts, setToasts] = useState([]);
   
-  const [brandStripeConnected, setBrandStripeConnected] = useState(false);
-  const [brandStripeAccountId, setBrandStripeAccountId] = useState('');
-  const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('');
-  const [sellerStripeConnected, setSellerStripeConnected] = useState(false);
-  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('');
-  const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('');
+  const [brandStripeConnected, setBrandStripeConnected] = useState(true);
+  const [brandStripeAccountId, setBrandStripeAccountId] = useState('acct_1U0zHSBrPGkr2X5w');
+  const [brandStripeMainAccountId, setBrandStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
+  const [sellerStripeConnected, setSellerStripeConnected] = useState(true);
+  const [sellerStripeAccountId, setSellerStripeAccountId] = useState('acct_1U0zHVBcWQdyiTVi');
+  const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [stripeModalRole, setStripeModalRole] = useState('brand');
   
@@ -63,12 +63,12 @@ export default function App() {
         setSellers(parsed.sellers || DEFAULT_SELLERS);
         setOrders(parsed.orders || DEFAULT_ORDERS);
         setSellerCatalog(parsed.sellerCatalog || DEFAULT_SELLER_CATALOG);
-        setBrandStripeConnected(parsed.brandStripeConnected !== undefined ? parsed.brandStripeConnected : false);
-        setBrandStripeAccountId(parsed.brandStripeAccountId || '');
-        setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || '');
-        setSellerStripeConnected(parsed.sellerStripeConnected !== undefined ? parsed.sellerStripeConnected : false);
-        setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : '');
-        setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId !== undefined ? parsed.sellerStripeMainAccountId : '');
+        setBrandStripeConnected(parsed.brandStripeConnected !== undefined ? parsed.brandStripeConnected : true);
+        setBrandStripeAccountId(parsed.brandStripeAccountId || 'acct_1U0zHSBrPGkr2X5w');
+        setBrandStripeMainAccountId(parsed.brandStripeMainAccountId || 'acct_1U0e7YPcKKk6xz69');
+        setSellerStripeConnected(parsed.sellerStripeConnected !== undefined ? parsed.sellerStripeConnected : true);
+        setSellerStripeAccountId(parsed.sellerStripeAccountId !== undefined ? parsed.sellerStripeAccountId : 'acct_1U0zHVBcWQdyiTVi');
+        setSellerStripeMainAccountId(parsed.sellerStripeMainAccountId !== undefined ? parsed.sellerStripeMainAccountId : 'acct_1U0e7YPcKKk6xz69');
         setBrandPendingSettlement(parsed.brandPendingSettlement || 0);
         setBrandOutstandingBalance(parsed.brandOutstandingBalance || 0);
         setBrandAccountStatus(parsed.brandAccountStatus || 'ACTIVE');
@@ -167,12 +167,12 @@ export default function App() {
       setSellers([...DEFAULT_SELLERS]);
       setOrders([...DEFAULT_ORDERS]);
       setSellerCatalog([...DEFAULT_SELLER_CATALOG]);
-      setBrandStripeConnected(false);
-      setBrandStripeAccountId('');
-      setBrandStripeMainAccountId('');
-      setSellerStripeConnected(false);
-      setSellerStripeAccountId('');
-      setSellerStripeMainAccountId('');
+      setBrandStripeConnected(true);
+      setBrandStripeAccountId('acct_1U0zHSBrPGkr2X5w');
+      setBrandStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
+      setSellerStripeConnected(true);
+      setSellerStripeAccountId('acct_1U0zHVBcWQdyiTVi');
+      setSellerStripeMainAccountId('acct_1U0e7YPcKKk6xz69');
       setBrandPendingSettlement(0);
       setBrandOutstandingBalance(0);
       setBrandAccountStatus('ACTIVE');
