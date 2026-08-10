@@ -260,17 +260,31 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                                     <i className="fa-solid fa-qrcode text-[8px]"></i> PromptPay QR
                                   </button>
                                 </div>
-                                <button 
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(o.stripePaymentUrl);
-                                    alert("คัดลอกลิงก์การชำระเงินไปยังคลิปบอร์ดแล้ว! สามารถส่งลิงก์นี้ให้ลูกค้าได้ทันที");
-                                  }}
-                                  className="px-2 py-0.5 border border-slate-200 hover:bg-slate-50 text-[10px] font-medium text-slate-600 rounded flex items-center justify-center gap-1 transition-all mt-0.5"
-                                  title="คัดลอกลิงก์"
-                                >
-                                  <i className="fa-regular fa-copy text-[8px]"></i> คัดลอกลิงก์
-                                </button>
+                                <div className="flex gap-1.5 mt-0.5 w-full">
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(o.stripePaymentUrl);
+                                      alert("คัดลอกลิงก์การชำระเงินบัตรเครดิตไปยังคลิปบอร์ดแล้ว!");
+                                    }}
+                                    className="flex-1 px-1.5 py-0.5 border border-slate-200 hover:bg-slate-50 text-[9px] font-medium text-slate-600 rounded flex items-center justify-center gap-1 transition-all"
+                                    title="คัดลอกลิงก์บัตรเครดิต"
+                                  >
+                                    <i className="fa-regular fa-copy text-[8px]"></i> ลิงก์บัตร
+                                  </button>
+                                  <button 
+                                    type="button"
+                                    onClick={() => {
+                                      const link = `${window.location.origin}/?pay_order_id=${o.id}`;
+                                      navigator.clipboard.writeText(link);
+                                      alert("คัดลอกลิงก์จ่ายเงิน PromptPay/บัตรเครดิต (MyMarket) ไปยังคลิปบอร์ดแล้ว! สามารถส่งลิงก์นี้ให้ลูกค้าได้ทันที");
+                                    }}
+                                    className="flex-1 px-1.5 py-0.5 border border-teal-200 text-teal-700 hover:bg-teal-50 text-[9px] font-bold rounded flex items-center justify-center gap-1 transition-all"
+                                    title="คัดลอกลิงก์พร้อมเพย์"
+                                  >
+                                    <i className="fa-solid fa-link text-[8px]"></i> ลิงก์พร้อมเพย์
+                                  </button>
+                                </div>
                                 <button 
                                   type="button"
                                   onClick={() => onCheckPaymentStatus(o.id)}
