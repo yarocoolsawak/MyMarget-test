@@ -47,33 +47,62 @@ export default defineConfig({
               }
 
               const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-              const session = await stripe.checkout.sessions.create({
-                payment_method_types: ['card', 'promptpay'],
-                line_items: [
-                  {
-                    price_data: {
-                      currency: 'thb',
-                      product_data: {
-                        name: name || 'คำสั่งซื้อจาก MyMarket',
+              let session;
+              try {
+                session = await stripe.checkout.sessions.create({
+                  payment_method_types: ['card', 'promptpay'],
+                  line_items: [
+                    {
+                      price_data: {
+                        currency: 'thb',
+                        product_data: {
+                          name: name || 'คำสั่งซื้อจาก MyMarket',
+                        },
+                        unit_amount: Math.round(amount * 100), // in Satang
                       },
-                      unit_amount: Math.round(amount * 100), // in Satang
+                      quantity: qty || 1,
                     },
-                    quantity: qty || 1,
-                  },
-                ],
-                mode: 'payment',
-                success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
-                cancel_url: `http://localhost:5173/?payment_cancel=true&order_id=${orderId}`,
-                // Save split targets and amounts in metadata so they are processed on status check / webhook success
-                metadata: {
-                  orderId: orderId,
-                  brandStripeAccountId: brandStripeAccountId || "",
-                  sellerStripeAccountId: sellerStripeAccountId || "",
-                  brandAmount: brandAmount ? String(Math.round(brandAmount * 100)) : "0", // in Satang
-                  sellerAmount: sellerAmount ? String(Math.round(sellerAmount * 100)) : "0", // in Satang
-                }
-              });
+                  ],
+                  mode: 'payment',
+                  success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+                  cancel_url: `http://localhost:5173/?payment_cancel=true&order_id=${orderId}`,
+                  // Save split targets and amounts in metadata so they are processed on status check / webhook success
+                  metadata: {
+                    orderId: orderId,
+                    brandStripeAccountId: brandStripeAccountId || "",
+                    sellerStripeAccountId: sellerStripeAccountId || "",
+                    brandAmount: brandAmount ? String(Math.round(brandAmount * 100)) : "0", // in Satang
+                    sellerAmount: sellerAmount ? String(Math.round(sellerAmount * 100)) : "0", // in Satang
+                  }
+                });
+              } catch (sessionErr) {
+                console.warn("PromptPay not enabled, falling back to Card only:", sessionErr.message);
+                session = await stripe.checkout.sessions.create({
+                  payment_method_types: ['card'],
+                  line_items: [
+                    {
+                      price_data: {
+                        currency: 'thb',
+                        product_data: {
+                          name: name || 'คำสั่งซื้อจาก MyMarket',
+                        },
+                        unit_amount: Math.round(amount * 100), // in Satang
+                      },
+                      quantity: qty || 1,
+                    },
+                  ],
+                  mode: 'payment',
+                  success_url: `http://localhost:5173/?payment_success=true&order_id=${orderId}&session_id={CHECKOUT_SESSION_ID}`,
+                  cancel_url: `http://localhost:5173/?payment_cancel=true&order_id=${orderId}`,
+                  metadata: {
+                    orderId: orderId,
+                    brandStripeAccountId: brandStripeAccountId || "",
+                    sellerStripeAccountId: sellerStripeAccountId || "",
+                    brandAmount: brandAmount ? String(Math.round(brandAmount * 100)) : "0", // in Satang
+                    sellerAmount: sellerAmount ? String(Math.round(sellerAmount * 100)) : "0", // in Satang
+                  }
+                });
+              }
 
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ url: session.url, id: session.id }));

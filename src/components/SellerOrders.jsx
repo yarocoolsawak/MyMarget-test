@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import PromptPayModal from './PromptPayModal';
 
-export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus, sellerStripeConnected, onCreateClaimLink, onSubmitCustomerClaim }) {
+export default function SellerOrders({ orders, products, sellerCatalog, activeSellerId, onCreateOrder, onCheckPaymentStatus, sellerStripeConnected, onCreateClaimLink, onSubmitCustomerClaim, onSimulatePromptPaySuccess }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [claimOrderId, setClaimOrderId] = useState(null);
   const [customerPortalOrder, setCustomerPortalOrder] = useState(null);
@@ -16,6 +17,8 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
   const [qty, setQty] = useState(1);
   const [sellingPrice, setSellingPrice] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('COD');
+  const [promptPayModalOpen, setPromptPayModalOpen] = useState(false);
+  const [selectedPromptPayOrder, setSelectedPromptPayOrder] = useState(null);
   
   // Validation states
   const [stockCount, setStockCount] = useState(0);
@@ -240,24 +243,34 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                         {o.status === "PENDING" && (
                           o.paymentMethod === 'STRIPE' ? (
                             o.stripePaymentUrl ? (
-                              <div className="flex flex-col gap-1.5 max-w-[160px]">
-                                <span className="text-[10px] text-slate-500 font-medium">ลูกค้าชำระเงินออนไลน์ (Stripe)</span>
-                                <div className="flex items-center gap-1">
+                              <div className="flex flex-col gap-1.5 max-w-[180px]">
+                                <span className="text-[10px] text-slate-500 font-medium">จ่ายเงินออนไลน์ (Stripe)</span>
+                                <div className="flex items-center gap-1 flex-wrap">
                                   <a href={o.stripePaymentUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-brand-secondary hover:bg-brand-secondary-hover text-white text-[10px] font-semibold rounded-md inline-flex items-center gap-1 shadow-sm transition-colors">
-                                    <i className="fa-solid fa-external-link text-[8px]"></i> จ่ายเงิน
+                                    <i className="fa-solid fa-credit-card text-[8px]"></i> บัตรเครดิต
                                   </a>
                                   <button 
                                     type="button"
                                     onClick={() => {
-                                      navigator.clipboard.writeText(o.stripePaymentUrl);
-                                      alert("คัดลอกลิงก์การชำระเงินไปยังคลิปบอร์ดแล้ว! สามารถส่งลิงก์นี้ให้ลูกค้าได้ทันที");
+                                      setSelectedPromptPayOrder(o);
+                                      setPromptPayModalOpen(true);
                                     }}
-                                    className="w-6 h-6 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 flex items-center justify-center border border-slate-200"
-                                    title="คัดลอกลิงก์"
+                                    className="px-2 py-1 bg-teal-600 hover:bg-teal-700 text-white text-[10px] font-semibold rounded-md inline-flex items-center gap-1 shadow-sm transition-colors"
                                   >
-                                    <i className="fa-regular fa-copy text-[10px]"></i>
+                                    <i className="fa-solid fa-qrcode text-[8px]"></i> PromptPay QR
                                   </button>
                                 </div>
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(o.stripePaymentUrl);
+                                    alert("คัดลอกลิงก์การชำระเงินไปยังคลิปบอร์ดแล้ว! สามารถส่งลิงก์นี้ให้ลูกค้าได้ทันที");
+                                  }}
+                                  className="px-2 py-0.5 border border-slate-200 hover:bg-slate-50 text-[10px] font-medium text-slate-600 rounded flex items-center justify-center gap-1 transition-all mt-0.5"
+                                  title="คัดลอกลิงก์"
+                                >
+                                  <i className="fa-regular fa-copy text-[8px]"></i> คัดลอกลิงก์
+                                </button>
                                 <button 
                                   type="button"
                                   onClick={() => onCheckPaymentStatus(o.id)}
@@ -690,6 +703,15 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
           </div>
         </div>
       )}
+      <PromptPayModal 
+        isOpen={promptPayModalOpen}
+        onClose={() => {
+          setPromptPayModalOpen(false);
+          setSelectedPromptPayOrder(null);
+        }}
+        order={selectedPromptPayOrder}
+        onSimulateSuccess={onSimulatePromptPaySuccess}
+      />
     </div>
   );
 }

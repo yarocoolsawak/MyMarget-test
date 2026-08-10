@@ -871,6 +871,19 @@ export default function App() {
     }
   };
 
+  const handleSimulatePaymentSuccess = (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updatedProducts = products.map(p => p.id === order.productId ? { ...p, stock: Math.max(0, p.stock - order.qty) } : p);
+    const updatedOrders = orders.map(o => o.id === orderId ? { ...o, status: 'CONFIRMED' } : o);
+
+    setProducts(updatedProducts);
+    setOrders(updatedOrders);
+    saveState(updatedProducts, null, updatedOrders, null);
+    showToast("ชำระเงินสำเร็จ (QR PromptPay)", `ออเดอร์ #${orderId} ได้รับการชำระเงินจำลองเรียบร้อยแล้ว แบรนด์ยืนยันตัดสต็อกให้อัตโนมัติ`, "success");
+  };
+
   const handleCheckPaymentStatusAfterRedirect = async (orderId, sessionId, connectedAccountId) => {
     try {
       const response = await fetch(`/api/check-session-status?session_id=${sessionId}${connectedAccountId ? `&connected_account_id=${connectedAccountId}` : ''}`);
@@ -1246,6 +1259,7 @@ export default function App() {
                   sellerStripeConnected={sellerStripeConnected}
                   onCreateClaimLink={handleCreateClaimLink}
                   onSubmitCustomerClaim={handleSubmitCustomerClaim}
+                  onSimulatePromptPaySuccess={handleSimulatePaymentSuccess}
                 />
               )}
               {activeSellerTab === 'finance' && (
