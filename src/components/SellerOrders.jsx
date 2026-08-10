@@ -446,8 +446,8 @@ export default function SellerOrders({ orders, products, sellerCatalog, activeSe
                       <option value="COD">เก็บเงินปลายทาง (COD)</option>
                       <option value="STRIPE">
                         {sellerStripeConnected 
-                          ? "โอนเงินผ่านระบบ (Stripe - บัตรเครดิต/เดบิต)" 
-                          : "โอนเงินผ่านระบบ (Stripe - กรุณาเชื่อมบัญชีที่แดชบอร์ด)"}
+                          ? "โอนเงินออนไลน์ (Stripe - บัตรเครดิต / PromptPay QR)" 
+                          : "โอนเงินออนไลน์ (Stripe - กรุณาเชื่อมบัญชีที่แดชบอร์ด)"}
                       </option>
                     </select>
                     {paymentMethod === 'STRIPE' && !sellerStripeConnected && (
