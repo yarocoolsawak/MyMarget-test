@@ -143,6 +143,27 @@ export default function App() {
     }));
   };
 
+  const addTransactionRecord = (accountId, type, amount, description) => {
+    if (!accountId) return;
+    const key = `mymarket_transactions_${accountId}`;
+    const raw = localStorage.getItem(key);
+    let history = [];
+    if (raw) {
+      try {
+        history = JSON.parse(raw);
+      } catch (e) {}
+    }
+    const newTx = {
+      id: "tx_" + Math.random().toString(36).substr(2, 9),
+      type, // 'sale', 'stripe_fee', 'refund', 'refund_fee', 'payout'
+      amount: parseFloat(amount),
+      description,
+      created: new Date().toLocaleString('th-TH')
+    };
+    const updated = [newTx, ...history];
+    localStorage.setItem(key, JSON.stringify(updated));
+  };
+
   // --- GLOBAL TOAST SYSTEM ---
   const showToast = (title, message, type = 'success', undoCallback = null) => {
     const id = Date.now();
@@ -505,6 +526,11 @@ export default function App() {
         const stripeFeeUsd = Math.round((refundAmountUsd * 0.029 + 0.3) * 100) / 100;
         const totalDeduction = refundAmountUsd + stripeFeeUsd;
 
+        if (brandStripeAccountId) {
+          addTransactionRecord(brandStripeAccountId, 'refund', -refundAmountUsd, `รายการคืนเงินลูกค้าสำหรับคำร้องออเดอร์ #${order.id}`);
+          addTransactionRecord(brandStripeAccountId, 'refund_fee', -stripeFeeUsd, `ค่าธรรมเนียมเสียเปล่า Stripe สำหรับคำร้องออเดอร์ #${order.id}`);
+        }
+
         if (nextPending >= totalDeduction) {
           nextPending = Math.round((nextPending - totalDeduction) * 100) / 100;
         } else {
@@ -583,13 +609,22 @@ export default function App() {
       if (!product) continue;
 
       const brandShareThb = product.dealerPrice * order.qty;
-      let brandShareUsd = Math.round((brandShareThb / 34) * 100) / 100;
+      const brandShareUsd = Math.round((brandShareThb / 34) * 100) / 100;
       
+      const stripeFeeUsd = Math.round((brandShareUsd * 0.029 + 0.3) * 100) / 100;
+      const brandNetUsd = Math.max(0, Math.round((brandShareUsd - stripeFeeUsd) * 100) / 100);
+
       const sellerShareThb = order.profit;
       const sellerShareUsd = Math.round((sellerShareThb / 34) * 100) / 100;
 
-      // Deduct outstanding debt from Brand Share first
-      let brandTransferUsd = brandShareUsd;
+      if (brandStripeAccountId) {
+        addTransactionRecord(brandStripeAccountId, 'sale', brandShareUsd, `รายรับส่วนแบ่งยอดขายสำหรับออเดอร์ #${order.id}`);
+        addTransactionRecord(brandStripeAccountId, 'stripe_fee', -stripeFeeUsd, `ค่าธรรมเนียมประมวลผล Stripe สำหรับออเดอร์ #${order.id}`);
+      }
+
+      // Deduct outstanding debt from Brand Net Share first
+      let brandTransferUsd = brandNetUsd;
+      const initialTransferUsd = brandTransferUsd;
       if (currentOutstanding > 0) {
         if (brandTransferUsd >= currentOutstanding) {
           brandTransferUsd = Math.round((brandTransferUsd - currentOutstanding) * 100) / 100;
@@ -597,6 +632,9 @@ export default function App() {
         } else {
           currentOutstanding = Math.round((currentOutstanding - brandTransferUsd) * 100) / 100;
           brandTransferUsd = 0;
+        }
+        if (brandStripeAccountId && initialTransferUsd - brandTransferUsd > 0) {
+          addTransactionRecord(brandStripeAccountId, 'refund_fee', -(initialTransferUsd - brandTransferUsd), `หักลบหนี้สะสมค้างชำระอัตโนมัติ สำหรับออเดอร์ #${order.id}`);
         }
       }
 
@@ -1145,6 +1183,7 @@ export default function App() {
                   brandOutstandingBalance={brandOutstandingBalance}
                   brandAccountStatus={brandAccountStatus}
                   onProcessSettlement={handleProcessSettlement}
+                  addTransactionRecord={addTransactionRecord}
                 />
               )}
             </>
@@ -1216,6 +1255,7 @@ export default function App() {
                   stripeMainAccountId={sellerStripeMainAccountId}
                   role="seller"
                   onOpenStripeConnect={() => handleOpenStripeConnect('seller')}
+                  addTransactionRecord={addTransactionRecord}
                 />
               )}
             </>
