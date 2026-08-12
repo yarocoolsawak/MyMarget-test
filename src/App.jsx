@@ -20,6 +20,7 @@ import SellerOrders from './components/SellerOrders';
 import StripeConnectModal from './components/StripeConnectModal';
 import FinanceDashboard from './components/FinanceDashboard';
 import ClaimDeptDashboard from './components/ClaimDeptDashboard';
+import CustomerPaymentPortal from './components/CustomerPaymentPortal';
 
 export default function App() {
   // --- STATE SECTIONS ---
@@ -50,6 +51,7 @@ export default function App() {
   const [sellerStripeMainAccountId, setSellerStripeMainAccountId] = useState('acct_1U0e7YPcKKk6xz69');
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [stripeModalRole, setStripeModalRole] = useState('brand');
+  const [payOrderId, setPayOrderId] = useState(null);
   
   const activeSellerId = 's2'; // fixed active seller for prototype testing
 
@@ -90,6 +92,13 @@ export default function App() {
   // Handle Stripe Redirect verification (Payments & Connect Onboarding)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // 0. Customer payment link check
+    const payOrderParam = urlParams.get('pay_order_id');
+    if (payOrderParam) {
+      setPayOrderId(payOrderParam);
+      return;
+    }
     
     // 1. Payment Success Redirect
     const success = urlParams.get('payment_success');
@@ -920,6 +929,17 @@ export default function App() {
 
   // --- STATS BADGES HELPER ---
   const pendingOrdersCount = orders.filter(o => o.status === "PENDING").length;
+
+  if (payOrderId) {
+    return (
+      <CustomerPaymentPortal 
+        orderId={payOrderId}
+        orders={orders}
+        products={products}
+        onSimulateSuccess={handleSimulatePaymentSuccess}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
